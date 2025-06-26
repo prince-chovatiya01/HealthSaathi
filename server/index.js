@@ -89,7 +89,8 @@ import connectDB from './config/db.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import doctorRoutes from './routes/doctorRoutes.js';
-import publicDoctorRoutes from './routes/publicDoctorRoutes.js'; // <-- rename if needed
+import publicDoctorRoutes from './routes/publicDoctorRoutes.js';
+import ratingRoutes from './routes/rating.js';
 
 dotenv.config();
 
@@ -108,7 +109,7 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', doctorRoutes);
 app.use('/api/doctors', publicDoctorRoutes);
-
+app.use('/api/ratings', ratingRoutes);
 // Root route
 app.get('/', (req, res) => {
   res.send('✅ API is running...');

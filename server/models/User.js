@@ -23,10 +23,6 @@ const userSchema = new mongoose.Schema({
     default: 'user',
     required: true
   },
-  isAdmin: {
-    type: Boolean,
-    default: false
-  },
   healthRecords: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'HealthRecord'

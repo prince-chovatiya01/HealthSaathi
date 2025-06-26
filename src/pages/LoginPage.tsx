@@ -182,8 +182,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');  // New role state
-  type LanguageKey = keyof typeof translations; 
+  type LanguageKey = keyof typeof translations;
   const { login, language } = useHealthSaathi();
   const navigate = useNavigate();
   const t = translations[language as LanguageKey];
@@ -197,11 +196,11 @@ const LoginPage = () => {
       const response = await fetch('http://localhost:3000/api/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, password, role }),
+        body: JSON.stringify({ phoneNumber, password }),
       });
 
       const data = await response.json();
-      console.log("Login response data:", data);  // optional now
+      console.log("Login response data:", data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
@@ -223,7 +222,6 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 px-4 py-12">
@@ -285,35 +283,6 @@ const LoginPage = () => {
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
-            </div>
-
-            {/* Role selector */}
-            <div className="mb-4">
-              <span className="block text-sm font-medium text-gray-700 mb-2">Login as:</span>
-              <div className="flex space-x-6">
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="user"
-                    checked={role === 'user'}
-                    onChange={() => setRole('user')}
-                    className="form-radio text-indigo-600"
-                  />
-                  <span className="ml-2">User</span>
-                </label>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    checked={role === 'admin'}
-                    onChange={() => setRole('admin')}
-                    className="form-radio text-indigo-600"
-                  />
-                  <span className="ml-2">Admin</span>
-                </label>
-              </div>
             </div>
 
             <Button

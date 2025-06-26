@@ -17,9 +17,63 @@
 
 import express from 'express';
 import Appointment from '../models/Appointment.js';
+import Rating from '../models/Rating.js';
 import protect from '../middleware/protect.js';
+import admin from '../middleware/admin.js';
 
 const router = express.Router();
+
+// ------------------- GET: All Appointments (Admin Only) -------------------
+router.get('/all', protect, admin, async (req, res) => {
+  try {
+    const appointments = await Appointment.find()
+      .populate('userId', 'name')
+      .populate('doctorId', 'name specialization')
+      .sort({ date: -1, time: 1 });
+
+    res.json(appointments);
+  } catch (error) {
+    console.error('Failed to fetch all appointments:', error);
+    res.status(500).json({ message: 'Failed to fetch all appointments' });
+  }
+});
+
+// ------------------- GET: Completed Appointments for Rating -------------------
+router.get('/completed', protect, async (req, res) => {
+  try {
+    const appointments = await Appointment.find({
+      userId: req.user._id,
+      status: 'completed'
+    })
+      .populate('doctorId', 'name specialization')
+      .sort({ date: -1, time: 1 });
+
+    const ratedAppointments = await Rating.find({ user: req.user._id });
+
+    const response = appointments.map((apt) => {
+      const rated = ratedAppointments.find(
+        (r) => r.appointment.toString() === apt._id.toString()
+      );
+
+      return {
+        _id: apt._id,
+        doctorId: apt.doctorId._id,
+        doctorName: apt.doctorId.name,
+        doctorSpecialization: apt.doctorId.specialization,
+        date: apt.date,
+        time: apt.time,
+        hasRated: !!rated,
+        userRating: rated?.rating || 0,
+        userReview: rated?.review || ''
+      };
+    });
+
+    res.json({ appointments: response });
+  } catch (error) {
+    console.error('Error fetching completed appointments:', error);
+    res.status(500).json({ message: 'Failed to fetch completed appointments' });
+  }
+});
 
 // ------------------- GET: User's Appointments -------------------
 router.get('/', protect, async (req, res) => {
@@ -34,7 +88,6 @@ router.get('/', protect, async (req, res) => {
       return res.json(appointments);
     }
 
-    // fallback: get current user’s appointments
     const appointments = await Appointment.find({ userId: req.user._id })
       .populate('doctorId', 'name specialization')
       .sort({ date: -1, time: 1 });
@@ -44,7 +97,6 @@ router.get('/', protect, async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch appointments' });
   }
 });
-
 
 // ------------------- POST: Book Appointment -------------------
 router.post('/', protect, async (req, res) => {
@@ -57,7 +109,6 @@ router.post('/', protect, async (req, res) => {
   try {
     const isoDate = new Date(date).toISOString().split('T')[0];
 
-    // Check for existing appointment for doctor
     const doctorConflict = await Appointment.findOne({
       doctorId,
       date: isoDate,
@@ -68,7 +119,6 @@ router.post('/', protect, async (req, res) => {
       return res.status(409).json({ message: 'This time slot is already booked for the doctor.' });
     }
 
-    // Check if user already booked something at the same time
     const userConflict = await Appointment.findOne({
       userId: req.user._id,
       date: isoDate,
@@ -79,7 +129,6 @@ router.post('/', protect, async (req, res) => {
       return res.status(409).json({ message: 'You already have an appointment at this time.' });
     }
 
-    // Create appointment
     const appointment = await Appointment.create({
       userId: req.user._id,
       doctorId,
@@ -105,6 +154,31 @@ router.get('/doctor/:doctorId', protect, async (req, res) => {
     res.json(appointments);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch doctor appointments' });
+  }
+});
+
+// ------------------- PATCH: Update Appointment Status (Admin only) -------------------
+router.patch('/:id/status', protect, admin, async (req, res) => {
+  const { status } = req.body;
+
+  if (!['completed', 'cancelled'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid status. Must be "completed" or "cancelled".' });
+  }
+
+  try {
+    const appointment = await Appointment.findById(req.params.id);
+
+    if (!appointment) {
+      return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    appointment.status = status;
+    await appointment.save();
+
+    res.json({ message: 'Appointment status updated successfully', appointment });
+  } catch (error) {
+    console.error('Error updating status:', error);
+    res.status(500).json({ message: 'Failed to update appointment status' });
   }
 });
 

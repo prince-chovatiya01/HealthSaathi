@@ -17,6 +17,8 @@ import ProfilePage from '../pages/ProfilePage';
 import AdminAddDoctor from '../components/AdminAddDoctor';
 import SignupPage from '../pages/SignupPage';
 import AppointmentForm from '../pages/AppointmentForm';
+import AdminManageAppointmentsPage from '../pages/AdminManageAppointmentsPage';
+import DoctorRatingPage from '../pages/DoctorRatingPage';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -26,6 +28,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
   
+  return <>{children}</>;
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, user } = useHealthSaathi();
+
+  if (!isAuthenticated || user?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -72,6 +84,12 @@ const AppRoutes = () => {
           <AppointmentsPage />
         </ProtectedRoute>
       } />
+      
+      <Route path="/rate-doctor" element={
+        <ProtectedRoute>
+          <DoctorRatingPage />
+        </ProtectedRoute>
+      } />
 
       <Route path="/book/:id" element={<AppointmentForm />} />
 
@@ -99,6 +117,14 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
+      {/* Admin routes */}
+
+      <Route path="/admin/manage-appointments" element={
+        <AdminRoute>
+          <AdminManageAppointmentsPage />
+        </AdminRoute>
+      } />
+
       {/* Fallback route */}
       {/* <Route path="*" element={<Navigate to="/\" replace />} /> */}
       <Route path="*" element={<Navigate to="/" replace />} />
