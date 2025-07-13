@@ -55,17 +55,16 @@ Coming soon...
 ## 📂 Project Structure (Major Folders)
 
 /client
-├── components/
-├── context/
-├── pages/
-└── routes/
+├── components/ # Reusable UI components (e.g., DoctorCard, Modal)
+├── context/ # React Context API for global state management
+├── pages/ # Page-level components (e.g., Dashboard, LoginPage, DoctorsPage)
+└── routes/ # Route definitions for frontend navigation
 
 /server
-├── models/
-├── routes/
-├── controllers/
-└── middleware/
-
+├── models/ # Mongoose models (User, Doctor, Appointment, Rating)
+├── routes/ # API route definitions (user, doctor, appointment, public)
+├── controllers/ # Logic for handling API requests
+└── middleware/ # Auth protection, error handlers, etc.
 
 ---
 
@@ -81,35 +80,8 @@ Coming soon...
 
 ## 📦 Use Cases
 
-- Telehealth platform MVPs.
-- College/academic projects involving full-stack integration.
-- Real-time scheduling applications.
-- Role-based SaaS dashboards.
-
----
-
-## 🛠️ Setup Instructions
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/HealthSaathi.git
-cd HealthSaathi
-
-# Install backend dependencies
-cd server
-npm install
-
-# Install frontend dependencies
-cd ../client
-npm install
-
-# Create .env files
-# Backend: server/.env
-PORT=3000
-MONGO_URI=your_mongo_connection_string
-JWT_SECRET=your_jwt_secret
-
-# Run development
-npm run dev    # in /client
-npm run server # in /server
-
+- Perfect for building telehealth platforms, especially for clinics, hospitals, or solo practitioners.
+- Useful as a boilerplate for real-time scheduling systems and admin-user dashboard systems.
+- Can be adapted for community health initiatives or NGO-backed rural outreach platforms.
+- Highly beneficial for people in remote or underserved areas where physical access to healthcare is limited — with upcoming online doctor consultation support, patients can consult doctors virtually.
+- Works great for both in-person appointment booking and future integration with video-based telemedicine.
