@@ -49,9 +49,67 @@ Coming soon...
 | Database     | MongoDB (Mongoose ODM)             |
 | Auth         | JWT, bcrypt                        |
 | State Mgmt   | React Context API                  |
-| Deployment   | *(You can host on Vercel + Render)*|
 
 ---
 
 ## 📂 Project Structure (Major Folders)
+
+/client
+├── components/
+├── context/
+├── pages/
+└── routes/
+
+/server
+├── models/
+├── routes/
+├── controllers/
+└── middleware/
+
+
+---
+
+## ✨ Advantages
+
+- **Real doctor discovery** with availability-aware filters.
+- **Admin control** over appointments without affecting ratings.
+- **Highly scalable** backend design using REST principles.
+- **Clean UI/UX** using modern design standards.
+- **Componentized architecture**: reusable, readable, maintainable.
+
+---
+
+## 📦 Use Cases
+
+- Telehealth platform MVPs.
+- College/academic projects involving full-stack integration.
+- Real-time scheduling applications.
+- Role-based SaaS dashboards.
+
+---
+
+## 🛠️ Setup Instructions
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/HealthSaathi.git
+cd HealthSaathi
+
+# Install backend dependencies
+cd server
+npm install
+
+# Install frontend dependencies
+cd ../client
+npm install
+
+# Create .env files
+# Backend: server/.env
+PORT=3000
+MONGO_URI=your_mongo_connection_string
+JWT_SECRET=your_jwt_secret
+
+# Run development
+npm run dev    # in /client
+npm run server # in /server
 
