@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Doctor from '../models/Doctors.js';
+import Rating from '../models/Rating.js';
 
 // Get all doctors with optional filters
 export const getAllDoctors = async (req, res) => {
@@ -10,7 +11,7 @@ export const getAllDoctors = async (req, res) => {
     if (specialization) query.specialization = specialization;
     if (language) query.languages = { $in: [language] };
 
-    const doctors = await Doctor.find(query).populate('reviews.user', 'name');
+    const doctors = await Doctor.find(query);
     res.status(200).json(doctors);
   } catch (error) {
     console.error('Error fetching doctors:', error);
@@ -18,7 +19,7 @@ export const getAllDoctors = async (req, res) => {
   }
 };
 
-// Get doctor by ID
+// Get doctor by ID (with ratings and reviews)
 export const getDoctorById = async (req, res) => {
   const doctorId = req.params.id;
 
@@ -27,12 +28,33 @@ export const getDoctorById = async (req, res) => {
   }
 
   try {
-    const doctor = await Doctor.findById(doctorId).populate('reviews.user', 'name');
+    // Fetch doctor as a plain JS object
+    const doctor = await Doctor.findById(doctorId).lean();
 
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor not found' });
     }
 
+    // Fetch ratings from Rating model
+    const ratings = await Rating.find({ doctor: doctorId })
+      .populate('user', 'name') // populate user name
+      .sort({ createdAt: -1 });
+
+    // Calculate average rating
+    const avgRating = ratings.length
+      ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+      : 0;
+
+    // Add computed fields to the plain doctor object
+    doctor.rating = parseFloat(avgRating.toFixed(1));
+    doctor.reviews = ratings.map(r => ({
+      user: r.user,
+      rating: r.rating,
+      comment: r.review,
+      date: r.createdAt
+    }));
+
+    // Send updated doctor object with reviews
     res.status(200).json(doctor);
   } catch (error) {
     console.error('Error fetching doctor:', error);
@@ -53,7 +75,6 @@ export const addDoctor = async (req, res) => {
       fees
     } = req.body;
 
-    // Basic validation
     if (!name || !specialization || !experience || !languages || !availability || !fees) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
@@ -65,13 +86,10 @@ export const addDoctor = async (req, res) => {
       languages,
       availability,
       imageUrl,
-      fees,
-      rating: 0,
-      reviews: []
+      fees
     });
 
     await newDoctor.save();
-
     res.status(201).json({ message: 'Doctor added successfully', doctor: newDoctor });
   } catch (error) {
     console.error('Error adding doctor:', error);
@@ -79,10 +97,10 @@ export const addDoctor = async (req, res) => {
   }
 };
 
-// Add a review for a doctor
+// Add a review (via Rating model)
 export const addDoctorReview = async (req, res) => {
   const doctorId = req.params.id;
-  const { rating, comment } = req.body;
+  const { rating, comment, appointmentId } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(doctorId)) {
     return res.status(400).json({ message: 'Invalid doctor ID format' });
@@ -94,28 +112,32 @@ export const addDoctorReview = async (req, res) => {
 
   try {
     const doctor = await Doctor.findById(doctorId);
-
     if (!doctor) {
       return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    const review = {
-      user: req.user?.userId, // Optional chaining in case `req.user` is undefined
+    const existing = await Rating.findOne({
+      user: req.user.userId,
+      doctor: doctorId,
+      appointment: appointmentId
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'You have already reviewed this appointment' });
+    }
+
+    const newRating = new Rating({
+      user: req.user.userId,
+      doctor: doctorId,
+      appointment: appointmentId,
       rating,
-      comment,
-    };
+      review: comment
+    });
 
-    doctor.reviews.push(review);
-
-    // Update average rating
-    const totalRating = doctor.reviews.reduce((sum, r) => sum + r.rating, 0);
-    doctor.rating = (totalRating / doctor.reviews.length).toFixed(1);
-
-    await doctor.save();
-
-    res.status(201).json({ message: 'Review added', doctor });
+    await newRating.save();
+    res.status(201).json({ message: 'Review submitted successfully' });
   } catch (error) {
-    console.error('Error adding review:', error);
-    res.status(500).json({ message: 'Server error while adding review' });
+    console.error('Error submitting review:', error);
+    res.status(500).json({ message: 'Server error while submitting review' });
   }
 };

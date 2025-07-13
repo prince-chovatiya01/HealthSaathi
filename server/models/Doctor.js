@@ -25,23 +25,6 @@ const AvailabilitySchema = new mongoose.Schema({
   }
 }, { _id: false });
 
-const ReviewSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  rating: {
-    type: Number,
-    min: 0,
-    max: 5
-  },
-  comment: String,
-  date: {
-    type: Date,
-    default: Date.now
-  }
-}, { _id: false });
-
 const doctorSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -79,12 +62,8 @@ const doctorSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0
-  },
-  rating: {
-    type: Number,
-    default: 0
-  },
-  reviews: [ReviewSchema]
+  }
+  // rating and reviews will be calculated on the fly from the Rating model
 }, {
   timestamps: true
 });

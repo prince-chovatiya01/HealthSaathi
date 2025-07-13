@@ -75,6 +75,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import Doctor from '../models/Doctor.js';
+import Rating from '../models/Rating.js';
 import protect from '../middleware/protect.js';
 import admin from '../middleware/admin.js';
 
@@ -106,9 +107,7 @@ router.post('/add-doctor', protect, admin, async (req, res) => {
       languages,
       availability,
       imageUrl,
-      fees,
-      rating: 0,
-      reviews: [],
+      fees
     });
 
     const savedDoctor = await newDoctor.save();
@@ -172,14 +171,14 @@ router.delete('/:id', protect, admin, async (req, res) => {
   }
 });
 
-// @desc    Add a review to a doctor
+// @desc    Submit a review (uses Rating model)
 // @route   POST /api/admin/:id/reviews
 // @access  Authenticated users
 router.post('/:id/reviews', protect, async (req, res) => {
-  const { id } = req.params;
-  const { rating, comment } = req.body;
+  const { id: doctorId } = req.params;
+  const { rating, comment, appointmentId } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
+  if (!mongoose.Types.ObjectId.isValid(doctorId)) {
     return res.status(400).json({ message: 'Invalid doctor ID format' });
   }
 
@@ -187,34 +186,35 @@ router.post('/:id/reviews', protect, async (req, res) => {
     return res.status(400).json({ message: 'Rating must be between 1 and 5' });
   }
 
+  if (!appointmentId || !mongoose.Types.ObjectId.isValid(appointmentId)) {
+    return res.status(400).json({ message: 'Invalid or missing appointment ID' });
+  }
+
   try {
-    const doctor = await Doctor.findById(id);
-    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+    // Check if user already submitted review for this appointment
+    const existing = await Rating.findOne({
+      doctor: doctorId,
+      appointment: appointmentId,
+      user: req.user.userId
+    });
 
-    const alreadyReviewed = doctor.reviews.find(
-      (r) => r.user.toString() === req.user?.userId
-    );
-
-    if (alreadyReviewed) {
-      return res.status(400).json({ message: 'You already reviewed this doctor' });
+    if (existing) {
+      return res.status(400).json({ message: 'You have already reviewed this appointment.' });
     }
 
-    const review = {
-      user: req.user?.userId,
+    const newRating = new Rating({
+      doctor: doctorId,
+      appointment: appointmentId,
+      user: req.user.userId,
       rating,
-      comment,
-      date: new Date(),
-    };
+      review: comment
+    });
 
-    doctor.reviews.push(review);
-    const total = doctor.reviews.reduce((acc, r) => acc + r.rating, 0);
-    doctor.rating = Number((total / doctor.reviews.length).toFixed(1));
-
-    await doctor.save();
-    res.status(201).json({ message: 'Review added' });
+    await newRating.save();
+    res.status(201).json({ message: 'Review submitted successfully.' });
   } catch (error) {
-    console.error('Error adding review:', error);
-    res.status(500).json({ message: 'Server error while adding review' });
+    console.error('Error saving review:', error);
+    res.status(500).json({ message: 'Server error while submitting review' });
   }
 });
 

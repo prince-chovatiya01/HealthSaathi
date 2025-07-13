@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Star, Calendar, Languages, DollarSign, ArrowLeft, Award, User, 
-  Clock, Heart, Share2, Phone, Mail, CheckCircle, Badge
+  Clock, Heart, Share2, Phone, Mail, CheckCircle, Badge, Plus
 } from 'lucide-react';
 
 interface Review {
@@ -247,8 +247,16 @@ const DoctorDetailPage = () => {
                 <Star className="w-6 h-6 text-yellow-500" />
                 <h2 className="text-2xl font-bold text-gray-800">Reviews</h2>
               </div>
-              
-              {doctor.reviews.length === 0 ? (
+
+              <button
+                onClick={() => console.log('Open review modal')}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition-all duration-300"
+              >
+                <Plus className="w-4 h-4" />
+                Add Review
+              </button>
+
+              {!doctor.reviews || doctor.reviews.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-4">💭</div>
                   <p className="text-gray-500">No reviews yet</p>
@@ -260,9 +268,9 @@ const DoctorDetailPage = () => {
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                            {review.user.name.charAt(0)}
+                            {review.user?.name?.charAt(0) || 'U'}
                           </div>
-                          <span className="font-semibold text-gray-800">{review.user.name}</span>
+                          <span className="font-semibold text-gray-800">{review.user?.name || 'Anonymous'}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Star className="w-4 h-4 text-yellow-500 fill-current" />
@@ -271,10 +279,10 @@ const DoctorDetailPage = () => {
                       </div>
                       <p className="text-gray-600 text-sm mb-3 leading-relaxed">{review.comment}</p>
                       <p className="text-xs text-gray-400">
-                        {new Date(review.date).toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
+                        {new Date(review.date).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
                         })}
                       </p>
                     </div>

@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Doctor from '../models/Doctor.js';
 import protect from '../middleware/protect.js';
+import Rating from '../models/Rating.js';
 
 const router = express.Router();
 
@@ -25,19 +26,30 @@ router.get('/', async (req, res) => {
 // GET /api/doctors/:id
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
-
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: 'Invalid doctor ID format' });
   }
 
-  try {
-    const doctor = await Doctor.findById(id).populate('reviews.user', 'name');
-    if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
-    res.json(doctor);
-  } catch (error) {
-    console.error('Error fetching doctor:', error);
-    res.status(500).json({ message: 'Server error while fetching doctor' });
-  }
+  const doctor = await Doctor.findById(id).lean();
+  if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+  const ratings = await Rating.find({ doctor: id })
+    .populate('user', 'name')
+    .sort({ createdAt: -1 });
+
+  const avgRating = ratings.length
+    ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+    : 0;
+
+  doctor.rating = parseFloat(avgRating.toFixed(1));
+  doctor.reviews = ratings.map(r => ({
+    user: r.user,
+    rating: r.rating,
+    comment: r.review,
+    date: r.createdAt
+  }));
+
+  res.json(doctor);
 });
 
 // POST /api/doctors/:id/reviews
