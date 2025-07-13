@@ -1,20 +1,3 @@
-// import express from 'express';
-// import auth from '../middleware/protect.js';
-// import {
-//   getUserAppointments,
-//   bookAppointment,
-//   updateAppointmentStatus
-// } from '../controllers/appointmentController.js';
-
-// const router = express.Router();
-
-// router.get('/', auth, getUserAppointments);
-// router.post('/', auth, bookAppointment);
-// router.patch('/:id', auth, updateAppointmentStatus);
-
-// export default router;
-
-
 import express from 'express';
 import Appointment from '../models/Appointment.js';
 import Rating from '../models/Rating.js';
