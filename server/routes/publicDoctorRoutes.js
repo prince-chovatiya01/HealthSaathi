@@ -15,8 +15,16 @@ router.get('/', async (req, res) => {
     if (specialization) query.specialization = specialization;
     if (language) query.languages = { $in: [language] };
 
-    const doctors = await Doctor.find(query).populate('reviews.user', 'name');
-    res.json(doctors);
+    const doctors = await Doctor.find(query).lean();
+
+    // Simply add placeholders for rating and reviews
+    const simplifiedDoctors = doctors.map((doc) => ({
+      ...doc,
+      rating: 0,
+      reviews: []
+    }));
+
+    res.json(simplifiedDoctors);
   } catch (error) {
     console.error('Error fetching doctors:', error);
     res.status(500).json({ message: 'Server error while fetching doctors' });

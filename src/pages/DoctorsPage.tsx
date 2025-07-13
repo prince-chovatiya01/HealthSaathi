@@ -3,12 +3,12 @@ import { Search, Filter, Star, Clock, MapPin, Award, ChevronRight, Heart, Zap } 
 import { Link } from 'react-router-dom';
 
 interface Slot {
-  startTime: string; // "HH:MM"
-  endTime: string;   // "HH:MM"
+  startTime: string;
+  endTime: string;
 }
 
 interface Availability {
-  day: string;       // "Monday", "Tuesday", etc.
+  day: string;
   slots: Slot[];
 }
 
@@ -22,7 +22,7 @@ interface Doctor {
   imageUrl?: string;
   fees: number;
   rating?: number;
-  reviews?: any[]; // You can create a `Review` interface if needed
+  reviews?: any[];
 }
 
 const DoctorsPage: React.FC = () => {
@@ -32,10 +32,6 @@ const DoctorsPage: React.FC = () => {
   const [availability, setAvailability] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDoctors();
-  }, [specialty]);
-
   const fetchDoctors = async () => {
     try {
       setIsLoading(true);
@@ -43,14 +39,19 @@ const DoctorsPage: React.FC = () => {
       if (specialty) queryParams.push(`specialization=${specialty}`);
       const query = queryParams.length ? `?${queryParams.join('&')}` : '';
 
-      // Updated route for your backend structure
       const response = await fetch(`http://localhost:3000/api/doctors${query}`);
       const data = await response.json();
-      setDoctors(data);
-      setIsLoading(false);
+
+      if (Array.isArray(data)) {
+        setDoctors(data);
+      } else {
+        console.warn('Unexpected response:', data);
+        setDoctors([]);
+      }
     } catch (error) {
       console.error('Failed to fetch doctors:', error);
       setDoctors([]);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -59,7 +60,6 @@ const DoctorsPage: React.FC = () => {
     fetchDoctors();
   }, [specialty]);
 
-  // Search filter
   const filteredDoctors = doctors.filter((doc) => {
     const term = searchTerm.toLowerCase();
     return (
@@ -68,7 +68,6 @@ const DoctorsPage: React.FC = () => {
     );
   });
 
-  // Availability filter (client-side only)
   const finalFilteredDoctors = availability
     ? filteredDoctors.filter((doc) =>
         doc.availability?.some((a: Availability) =>
@@ -99,7 +98,6 @@ const DoctorsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-6">
           <div className="text-center mb-8">
@@ -109,7 +107,6 @@ const DoctorsPage: React.FC = () => {
             <p className="text-gray-600 text-lg">Connect with experienced healthcare professionals</p>
           </div>
 
-          {/* Enhanced Filters */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
@@ -122,7 +119,7 @@ const DoctorsPage: React.FC = () => {
                   className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 />
               </div>
-              
+
               <div className="relative">
                 <Filter className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
                 <select
@@ -137,7 +134,7 @@ const DoctorsPage: React.FC = () => {
                   <option value="Pediatrics">Pediatrics</option>
                 </select>
               </div>
-              
+
               <div className="relative">
                 <Clock className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
                 <select
@@ -156,24 +153,21 @@ const DoctorsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Results */}
       <div className="container mx-auto px-4 py-8">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-lg animate-pulse">
-                <div className="p-6">
-                  <div className="flex items-center mb-4">
-                    <div className="w-16 h-16 bg-gray-200 rounded-full mr-4"></div>
-                    <div className="flex-1">
-                      <div className="h-6 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                    </div>
+              <div key={i} className="bg-white rounded-2xl shadow-lg animate-pulse p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-16 h-16 bg-gray-200 rounded-full mr-4"></div>
+                  <div className="flex-1">
+                    <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                 </div>
               </div>
             ))}
@@ -188,13 +182,12 @@ const DoctorsPage: React.FC = () => {
                 {searchTerm || specialty || availability ? 'No doctors found' : 'No doctors available'}
               </h3>
               <p className="text-gray-600">
-                {searchTerm || specialty || availability 
+                {searchTerm || specialty || availability
                   ? 'Try adjusting your search criteria or filters'
-                  : 'There are currently no doctors registered in the system'
-                }
+                  : 'There are currently no doctors registered in the system'}
               </p>
               {(searchTerm || specialty || availability) && (
-                <button 
+                <button
                   onClick={() => {
                     setSearchTerm('');
                     setSpecialty('');
@@ -214,14 +207,13 @@ const DoctorsPage: React.FC = () => {
                 {finalFilteredDoctors.length} Doctor{finalFilteredDoctors.length !== 1 ? 's' : ''} Available
               </h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {finalFilteredDoctors.map((doctor) => (
-                <div 
-                  key={doctor._id} 
+                <div
+                  key={doctor._id}
                   className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl hover:scale-105 transition-all duration-300 group"
                 >
-                  {/* Availability Badge */}
                   <div className="relative">
                     <div className="absolute top-4 right-4 z-10">
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1.5 rounded-full">
@@ -231,12 +223,10 @@ const DoctorsPage: React.FC = () => {
                   </div>
 
                   <div className="p-6">
-                    {/* Doctor Info */}
                     <div className="flex items-start mb-6">
                       <div className="relative">
                         <img
                           src={doctor.imageUrl || `https://ui-avatars.com/api/?name=${doctor.name}&background=0D8ABC&color=fff&rounded=true`}
-                          // https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.name}&backgroundColor=b6e3f4,c0aede,d1d4f9
                           alt={doctor.name}
                           className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-2 group-hover:shadow-xl"
                         />
@@ -247,6 +237,9 @@ const DoctorsPage: React.FC = () => {
                       <div className="ml-4 flex-1">
                         <h3 className="text-xl font-bold text-gray-900 mb-1">{doctor.name}</h3>
                         <p className="text-blue-600 font-medium mb-2">{doctor.specialization}</p>
+
+                        {/* Rating and reviews are commented out */}
+                        {/* 
                         {doctor.rating && (
                           <div className="flex items-center gap-2 mb-2">
                             <div className="flex items-center gap-1">
@@ -256,10 +249,10 @@ const DoctorsPage: React.FC = () => {
                             <span className="text-gray-500 text-sm">({doctor.reviews?.length || 0} reviews)</span>
                           </div>
                         )}
+                        */}
                       </div>
                     </div>
 
-                    {/* Details */}
                     <div className="space-y-3 mb-6">
                       <div className="flex items-center gap-3 text-gray-600">
                         <Award className="w-4 h-4 text-blue-500" />
@@ -271,7 +264,6 @@ const DoctorsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Price and Book Button */}
                     <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                       <div>
                         <p className="text-2xl font-bold text-gray-900">₹{doctor.fees}</p>
