@@ -54,17 +54,19 @@ Coming soon...
 
 ## 📂 Project Structure (Major Folders)
 
+```
 /client
-├── components/ # Reusable UI components (e.g., DoctorCard, Modal)
-├── context/ # React Context API for global state management
-├── pages/ # Page-level components (e.g., Dashboard, LoginPage, DoctorsPage)
-└── routes/ # Route definitions for frontend navigation
+├── components       # Reusable UI components (e.g., DoctorCard, Modal)
+├── context          # React Context API for global state management
+├── pages            # Page-level components (e.g., Dashboard, LoginPage, DoctorsPage)
+└── routes           # Route definitions for frontend navigation
 
 /server
-├── models/ # Mongoose models (User, Doctor, Appointment, Rating)
-├── routes/ # API route definitions (user, doctor, appointment, public)
-├── controllers/ # Logic for handling API requests
-└── middleware/ # Auth protection, error handlers, etc.
+├── models           # Mongoose models (User, Doctor, Appointment, Rating)
+├── routes           # API route definitions (user, doctor, appointment, public)
+├── controllers      # Logic for handling API requests
+└── middleware       # Auth protection, error handlers, etc.
+```
 
 ---
 
