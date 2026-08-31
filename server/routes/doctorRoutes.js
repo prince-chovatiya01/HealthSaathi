@@ -44,6 +44,19 @@ router.post('/add-doctor', protect, admin, async (req, res) => {
   }
 });
 
+// @desc    Get all doctors (admin view)
+// @route   GET /api/admin/doctors
+// @access  Admin only
+router.get('/doctors', protect, admin, async (req, res) => {
+  try {
+    const doctors = await Doctor.find().sort({ createdAt: -1 });
+    res.json(doctors);
+  } catch (error) {
+    console.error('Error fetching doctors:', error);
+    res.status(500).json({ message: 'Server error while fetching doctors' });
+  }
+});
+
 // @desc    Update a doctor by ID
 // @route   PUT /api/admin/:id
 // @access  Admin only
@@ -90,6 +103,9 @@ router.delete('/:id', protect, admin, async (req, res) => {
     if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
     await Doctor.deleteOne({ _id: id });
+    // Also remove associated ratings
+    await Rating.deleteMany({ doctor: id });
+
     res.json({ message: 'Doctor removed' });
   } catch (error) {
     console.error('Error deleting doctor:', error);
@@ -97,7 +113,7 @@ router.delete('/:id', protect, admin, async (req, res) => {
   }
 });
 
-// @desc    Submit a review (uses Rating model)
+// @desc    Submit a review via Rating model (requires completed appointment)
 // @route   POST /api/admin/:id/reviews
 // @access  Authenticated users
 router.post('/:id/reviews', protect, async (req, res) => {
@@ -121,7 +137,7 @@ router.post('/:id/reviews', protect, async (req, res) => {
     const existing = await Rating.findOne({
       doctor: doctorId,
       appointment: appointmentId,
-      user: req.user.userId
+      user: req.user._id // Fixed: was req.user.userId (undefined)
     });
 
     if (existing) {
@@ -131,7 +147,7 @@ router.post('/:id/reviews', protect, async (req, res) => {
     const newRating = new Rating({
       doctor: doctorId,
       appointment: appointmentId,
-      user: req.user.userId,
+      user: req.user._id, // Fixed: was req.user.userId (undefined)
       rating,
       review: comment
     });

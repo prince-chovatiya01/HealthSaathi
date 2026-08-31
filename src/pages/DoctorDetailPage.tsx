@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useHealthSaathi } from '../context/HealthSaathiContext';
+import axiosInstance from '../api/axiosInstance';
+import ChatWindow from '../components/chat/ChatWindow';
 import {
   Star, Calendar, Languages, DollarSign, ArrowLeft, Award, User, 
   Clock, Heart, Share2, Phone, Mail, CheckCircle, Badge, Plus
@@ -37,18 +39,20 @@ interface Doctor {
 const DoctorDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useHealthSaathi();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>('');
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     const fetchDoctor = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const res = await axios.get<Doctor>(`http://localhost:3000/api/doctors/${id}`);
+        const res = await axiosInstance.get<Doctor>(`/doctors/${id}`);
         setDoctor(res.data);
       } catch (err) {
         console.error('Failed to fetch doctor', err);
@@ -188,11 +192,29 @@ const DoctorDetailPage = () => {
                   <Phone className="w-4 h-4" />
                   Call Now
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-600 rounded-full hover:bg-green-200 transition">
-                  <Mail className="w-4 h-4" />
-                  Message
-                </button>
+                {user && (
+                  <button
+                    onClick={() => setShowChat(prev => !prev)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition ${
+                      showChat ? 'bg-green-500 text-white' : 'bg-green-100 text-green-600 hover:bg-green-200'
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" />
+                    {showChat ? 'Close Chat' : 'Message'}
+                  </button>
+                )}
               </div>
+
+              {/* Chat Panel */}
+              {showChat && user && doctor && (
+                <div className="mt-6">
+                  <ChatWindow
+                    doctorId={doctor._id}
+                    doctorName={doctor.name}
+                    onClose={() => setShowChat(false)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -249,7 +271,19 @@ const DoctorDetailPage = () => {
               </div>
 
               <button
-                onClick={() => console.log('Open review modal')}
+                onClick={() => {
+                  if (!user) {
+                    navigate('/login');
+                    return;
+                  }
+                  navigate('/rate-doctor', {
+                    state: {
+                      doctorId: doctor?._id,
+                      doctorName: doctor?.name,
+                      doctorSpecialization: doctor?.specialization
+                    }
+                  });
+                }}
                 className="flex items-center gap-1 px-3 py-1.5 text-sm bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition-all duration-300"
               >
                 <Plus className="w-4 h-4" />

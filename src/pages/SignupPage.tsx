@@ -5,13 +5,13 @@ import { useHealthSaathi } from '../context/HealthSaathiContext';
 import translations from '../utils/translations';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import axiosInstance from '../api/axiosInstance';
 
 const SignupPage = () => {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'user' | 'admin'>('user');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,13 +24,13 @@ const SignupPage = () => {
     e.preventDefault();
     setError('');
 
-    // ✅ Validate phone number
+    // Validate phone number
     if (!/^\d{10}$/.test(phoneNumber)) {
       setError('Please enter a valid 10-digit phone number');
       return;
     }
 
-    // ✅ Confirm password check
+    // Confirm password check
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -39,21 +39,16 @@ const SignupPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phoneNumber, password, role }),
+      // Role is always 'user' — admin must be set manually in the database
+      const response = await axiosInstance.post('/users/register', {
+        name,
+        phoneNumber,
+        password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed');
-      }
+      const data = response.data;
 
       localStorage.setItem('token', data.token);
 
-      // ✅ Call login() with full user object
       login({
         _id: data._id,
         phoneNumber: data.phoneNumber,
@@ -63,7 +58,7 @@ const SignupPage = () => {
 
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      setError(err.response?.data?.message || err.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +135,7 @@ const SignupPage = () => {
               />
             </div>
 
-            <div className="mb-4">
+            <div className="mb-6">
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm Password
               </label>
@@ -154,36 +149,6 @@ const SignupPage = () => {
                 required
                 disabled={isLoading}
               />
-            </div>
-
-            <div className="mb-4">
-              <span className="block text-sm font-medium text-gray-700 mb-2">Sign up as:</span>
-              <div className="flex space-x-6">
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="user"
-                    checked={role === 'user'}
-                    onChange={() => setRole('user')}
-                    className="form-radio text-indigo-600"
-                    disabled={isLoading}
-                  />
-                  <span className="ml-2">User</span>
-                </label>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    checked={role === 'admin'}
-                    onChange={() => setRole('admin')}
-                    className="form-radio text-indigo-600"
-                    disabled={isLoading}
-                  />
-                  <span className="ml-2">Admin</span>
-                </label>
-              </div>
             </div>
 
             <Button

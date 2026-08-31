@@ -18,26 +18,29 @@ import AdminAddDoctor from '../components/AdminAddDoctor';
 import SignupPage from '../pages/SignupPage';
 import AppointmentForm from '../pages/AppointmentForm';
 import AdminManageAppointmentsPage from '../pages/AdminManageAppointmentsPage';
+import AdminDoctorsPage from '../pages/AdminDoctorsPage';
 import DoctorRatingPage from '../pages/DoctorRatingPage';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useHealthSaathi();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
+  const { isAuthenticated, authLoading } = useHealthSaathi();
+  if (authLoading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+    </div>
+  );
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, user } = useHealthSaathi();
-
-  if (!isAuthenticated || user?.role !== 'admin') {
-    return <Navigate to="/" replace />;
-  }
-
+  const { isAuthenticated, user, authLoading } = useHealthSaathi();
+  if (authLoading) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+    </div>
+  );
+  if (!isAuthenticated || user?.role !== 'admin') return <Navigate to="/" replace />;
   return <>{children}</>;
 };
 
@@ -74,9 +77,9 @@ const AppRoutes = () => {
       } />
       
       <Route path="/admin/add-doctor" element={
-          <ProtectedRoute>
+          <AdminRoute>
             <AdminAddDoctor />
-          </ProtectedRoute>
+          </AdminRoute>
         }/>
 
       <Route path="/appointments" element={
@@ -91,7 +94,11 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
-      <Route path="/book/:id" element={<AppointmentForm />} />
+      <Route path="/book/:id" element={
+        <ProtectedRoute>
+          <AppointmentForm />
+        </ProtectedRoute>
+      } />
 
       <Route path="/health-records" element={
         <ProtectedRoute>
@@ -122,6 +129,12 @@ const AppRoutes = () => {
       <Route path="/admin/manage-appointments" element={
         <AdminRoute>
           <AdminManageAppointmentsPage />
+        </AdminRoute>
+      } />
+
+      <Route path="/admin/doctors" element={
+        <AdminRoute>
+          <AdminDoctorsPage />
         </AdminRoute>
       } />
 

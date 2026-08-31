@@ -8,7 +8,7 @@ const healthRecordSchema = new mongoose.Schema({
   },
   recordType: {
     type: String,
-    enum: ['prescription', 'labReport', 'vaccination', 'general'],
+    // Accept both legacy enum values and new free-text values from frontend
     required: true
   },
   date: {
@@ -19,7 +19,7 @@ const healthRecordSchema = new mongoose.Schema({
   hospitalName: String,
   details: {
     type: String,
-    required: true
+    default: ''
   },
   attachments: [{
     filename: String,

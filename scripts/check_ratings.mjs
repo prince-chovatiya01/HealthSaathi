@@ -1,0 +1,10 @@
+import mongoose from 'mongoose';
+await mongoose.connect('mongodb+srv://root:root@completecoding.bft5dmj.mongodb.net/healthsaathi?appName=CompleteCoding');
+const Rating = (await import('../server/models/Rating.js')).default;
+const User = (await import('../server/models/User.js')).default;
+const Doctor = (await import('../server/models/Doctor.js')).default;
+const ratings = await Rating.find().populate('doctor','name').populate('user','name');
+console.log('ALL RATINGS:');
+ratings.forEach(r => console.log(' ', r.user?.name, '->', r.doctor?.name, ':', r.rating, 'stars'));
+console.log('Total:', ratings.length);
+await mongoose.disconnect();

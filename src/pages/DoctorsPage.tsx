@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Star, Clock, MapPin, Award, ChevronRight, Heart, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import axiosInstance from '../api/axiosInstance';
+import PageNav from '../components/common/PageNav';
 
 interface Slot {
   startTime: string;
@@ -22,6 +24,7 @@ interface Doctor {
   imageUrl?: string;
   fees: number;
   rating?: number;
+  reviewCount?: number;
   reviews?: any[];
 }
 
@@ -35,12 +38,11 @@ const DoctorsPage: React.FC = () => {
   const fetchDoctors = async () => {
     try {
       setIsLoading(true);
-      const queryParams = [];
-      if (specialty) queryParams.push(`specialization=${specialty}`);
-      const query = queryParams.length ? `?${queryParams.join('&')}` : '';
+      const params: Record<string, string> = {};
+      if (specialty) params.specialization = specialty;
 
-      const response = await fetch(`http://localhost:3000/api/doctors${query}`);
-      const data = await response.json();
+      const response = await axiosInstance.get('/doctors', { params });
+      const data = response.data;
 
       if (Array.isArray(data)) {
         setDoctors(data);
@@ -100,6 +102,7 @@ const DoctorsPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-6">
+          <PageNav />
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
               Find Your Perfect Doctor
@@ -238,18 +241,15 @@ const DoctorsPage: React.FC = () => {
                         <h3 className="text-xl font-bold text-gray-900 mb-1">{doctor.name}</h3>
                         <p className="text-blue-600 font-medium mb-2">{doctor.specialization}</p>
 
-                        {/* Rating and reviews are commented out */}
-                        {/* 
-                        {doctor.rating && (
+                        {doctor.rating !== undefined && doctor.rating > 0 && (
                           <div className="flex items-center gap-2 mb-2">
                             <div className="flex items-center gap-1">
                               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                               <span className="font-semibold text-gray-900">{doctor.rating.toFixed(1)}</span>
                             </div>
-                            <span className="text-gray-500 text-sm">({doctor.reviews?.length || 0} reviews)</span>
+                            <span className="text-gray-500 text-sm">({doctor.reviewCount ?? 0} reviews)</span>
                           </div>
                         )}
-                        */}
                       </div>
                     </div>
 

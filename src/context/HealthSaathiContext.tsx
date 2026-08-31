@@ -1,7 +1,6 @@
 // context/HealthSaathiContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// ✅ User type
 type User = {
   _id: string;
   phoneNumber: string;
@@ -9,36 +8,34 @@ type User = {
   name?: string;
 };
 
-// ✅ Context type
 type HealthSaathiContextType = {
   isAuthenticated: boolean;
   user: User | null;
+  authLoading: boolean; // NEW: true while restoring from localStorage
   login: (userData: User) => void;
   logout: () => void;
   language: string;
   setLanguage: (lang: string) => void;
 };
 
-// ✅ Create context
 const HealthSaathiContext = createContext<HealthSaathiContextType | undefined>(undefined);
 
-// ✅ Provider
 export const HealthSaathiProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [language, setLanguage] = useState('en');
+  const [authLoading, setAuthLoading] = useState(true); // wait until localStorage is read
 
   useEffect(() => {
-    // Load from localStorage on mount
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try { setUser(JSON.parse(storedUser)); } catch { /* ignore corrupt data */ }
     }
+    setAuthLoading(false); // done restoring
   }, []);
 
   const login = (userData: User & { token?: string }) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
-
     if (userData.token) {
       localStorage.setItem('token', userData.token);
     }
@@ -54,14 +51,13 @@ export const HealthSaathiProvider = ({ children }: { children: React.ReactNode }
 
   return (
     <HealthSaathiContext.Provider
-      value={{ isAuthenticated, user, login, logout, language, setLanguage }}
+      value={{ isAuthenticated, user, authLoading, login, logout, language, setLanguage }}
     >
       {children}
     </HealthSaathiContext.Provider>
   );
 };
 
-// ✅ Hook
 export const useHealthSaathi = () => {
   const context = useContext(HealthSaathiContext);
   if (!context) {

@@ -1,6 +1,7 @@
 import express from 'express';
 import Appointment from '../models/Appointment.js';
 import Rating from '../models/Rating.js';
+import Doctor from '../models/Doctor.js';
 import protect from '../middleware/protect.js';
 import admin from '../middleware/admin.js';
 
@@ -90,6 +91,12 @@ router.post('/', protect, async (req, res) => {
   }
 
   try {
+    // Validate doctor exists
+    const doctorExists = await Doctor.findById(doctorId);
+    if (!doctorExists) {
+      return res.status(404).json({ message: 'Doctor not found.' });
+    }
+
     const isoDate = new Date(date).toISOString().split('T')[0];
 
     const doctorConflict = await Appointment.findOne({
@@ -120,7 +127,8 @@ router.post('/', protect, async (req, res) => {
       notes,
     });
 
-    res.status(201).json(appointment);
+    const populated = await appointment.populate('doctorId', 'name specialization');
+    res.status(201).json(populated);
   } catch (error) {
     console.error('Appointment creation error:', error.message);
     res.status(500).json({ message: 'Failed to create appointment', error: error.message });

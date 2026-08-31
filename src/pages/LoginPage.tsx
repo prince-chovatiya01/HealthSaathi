@@ -5,6 +5,7 @@ import { useHealthSaathi } from '../context/HealthSaathiContext';
 import translations from '../utils/translations';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import axiosInstance from '../api/axiosInstance';
 
 const LoginPage = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -23,18 +24,8 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber, password }),
-      });
-
-      const data = await response.json();
-      console.log("Login response data:", data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
+      const response = await axiosInstance.post('/users/login', { phoneNumber, password });
+      const data = response.data;
 
       localStorage.setItem('token', data.token);
 
@@ -47,7 +38,7 @@ const LoginPage = () => {
 
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      setError(err.response?.data?.message || err.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }
@@ -108,6 +99,7 @@ const LoginPage = () => {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-indigo-600"
+                style={{ top: '28px' }}
                 tabIndex={-1}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >

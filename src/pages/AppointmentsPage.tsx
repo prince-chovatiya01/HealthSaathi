@@ -49,29 +49,37 @@ const AppointmentsPage = () => {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const res = await axiosInstance.get('/appointments/completed');
-        const completedData = res.data.appointments || [];
-
+        // Single call — /appointments returns all appointments with doctorId populated
         const allRes = await axiosInstance.get('/appointments');
         const allData = Array.isArray(allRes.data)
           ? allRes.data
           : allRes.data.appointments || [];
 
+        // Also fetch completed to get hasRated status
+        let completedData: any[] = [];
+        try {
+          const completedRes = await axiosInstance.get('/appointments/completed');
+          completedData = completedRes.data.appointments || [];
+        } catch {
+          // Not critical — hasRated will just default to false
+        }
+
         const formatted = allData.map((apt: any) => {
           const ratedMatch = completedData.find((c: any) => c._id === apt._id);
+          // Backend populates doctorId as an object; normalize to doctor field
+          const doctorInfo = apt.doctorId || apt.doctor || { name: 'Unknown', specialization: 'General' };
           return {
             ...apt,
-            hasRated: ratedMatch?.hasRated || false,
-            userRating: ratedMatch?.userRating || 0,
-            userReview: ratedMatch?.userReview || '',
-            doctor: apt.doctorId || apt.doctor || { name: 'Unknown', specialization: 'General' },
+            hasRated: ratedMatch?.hasRated ?? false,
+            userRating: ratedMatch?.userRating ?? 0,
+            userReview: ratedMatch?.userReview ?? '',
+            doctor: doctorInfo,
           };
         });
 
         setAppointments(formatted);
       } catch (error) {
         console.error('Error fetching appointments:', error);
-        // Don't logout here, just log the error
       } finally {
         setLoading(false);
       }
@@ -170,14 +178,17 @@ const AppointmentsPage = () => {
     }
   };
 
-  // Helper function to get proper doctor ID
+  // Helper function to get proper doctor ID — doctorId is populated as an object
   const getDoctorId = (appointment: Appointment): string => {
-    if (typeof appointment.doctorId === 'string') {
-      return appointment.doctorId;
-    }
+    // If doctorId is a populated object
     if (typeof appointment.doctorId === 'object' && appointment.doctorId?._id) {
       return appointment.doctorId._id;
     }
+    // If doctorId is already a plain string ObjectId
+    if (typeof appointment.doctorId === 'string' && appointment.doctorId) {
+      return appointment.doctorId;
+    }
+    // Fallback: try doctor._id
     if (appointment.doctor?._id) {
       return appointment.doctor._id;
     }
@@ -221,6 +232,42 @@ const AppointmentsPage = () => {
             Book New Appointment
           </Button>
         </Link>
+      </div>
+
+      {/* Search + Filter Tabs */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search by doctor name or specialization..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+          />
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <Filter className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          {(['all', 'upcoming', 'completed', 'missed', 'cancelled'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                filter === f
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600'
+              }`}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+              {f !== 'all' && (
+                <span className="ml-1.5 text-xs opacity-70">
+                  ({f === 'upcoming' ? counts.upcoming : f === 'completed' ? counts.completed : f === 'missed' ? counts.missed : counts.cancelled})
+                </span>
+              )}
+              {f === 'all' && <span className="ml-1.5 text-xs opacity-70">({counts.total})</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Card className="shadow-lg">

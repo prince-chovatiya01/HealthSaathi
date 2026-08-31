@@ -1,6 +1,15 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+const healthMetricsSchema = new mongoose.Schema({
+  heartRate: { type: Number },
+  bloodPressure: { type: String },
+  weight: { type: Number },
+  temperature: { type: Number },
+  steps: { type: Number },
+  lastUpdated: { type: String }
+}, { _id: false });
+
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -30,7 +39,11 @@ const userSchema = new mongoose.Schema({
   appointments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointment'
-  }]
+  }],
+  healthMetrics: {
+    type: healthMetricsSchema,
+    default: null
+  }
 }, {
   timestamps: true
 });

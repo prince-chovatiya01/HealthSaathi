@@ -12,7 +12,12 @@ import {
   TrendingUp,
   Clock,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Edit2,
+  X,
+  Save,
+  Pill,
+  Leaf
 } from 'lucide-react';
 import Card, { CardBody, CardHeader } from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -53,20 +58,15 @@ const DashboardPage = () => {
   const [healthMetrics, setHealthMetrics] = useState<HealthMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Generate dummy health metrics if none exist
-  const generateDummyHealthMetrics = (): HealthMetrics => {
-    const baseDate = new Date();
-    baseDate.setHours(baseDate.getHours() - Math.floor(Math.random() * 24));
-    
-    return {
-      heartRate: 72 + Math.floor(Math.random() * 20), // 72-92 BPM
-      bloodPressure: `${120 + Math.floor(Math.random() * 20)}/${80 + Math.floor(Math.random() * 10)}`,
-      weight: 65 + Math.floor(Math.random() * 30), // 65-95 kg
-      temperature: 36.5 + (Math.random() * 1.5), // 36.5-38°C
-      steps: 5000 + Math.floor(Math.random() * 8000), // 5000-13000 steps
-      lastUpdated: baseDate.toISOString()
-    };
-  };
+  // Fetch real health metrics from server — no more dummy data
+  // If none exist, healthMetrics stays null and user sees a friendly empty state
+  const [showMetricsForm, setShowMetricsForm] = useState(false);
+  const [metricsForm, setMetricsForm] = useState({ heartRate: '', bloodPressure: '', weight: '', temperature: '', steps: '' });
+  const [savingMetrics, setSavingMetrics] = useState(false);
+  const [metricsError, setMetricsError] = useState('');
+  const [feeling, setFeeling] = useState<'great' | 'okay' | 'unwell' | null>(() => {
+    return (localStorage.getItem('hs_feeling') as any) || null;
+  });
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -94,17 +94,14 @@ const DashboardPage = () => {
         
         setAppointments(appointmentsData);
         
-        // Use existing health metrics or generate dummy ones
+        // Use real health metrics if they exist in DB
         const existingMetrics = res.data.healthMetrics;
         if (existingMetrics && Object.keys(existingMetrics).length > 0) {
           setHealthMetrics(existingMetrics);
-        } else {
-          setHealthMetrics(generateDummyHealthMetrics());
         }
+        // If no metrics, leave as null — user will see 'Add Metrics' prompt
       } catch (error) {
         console.error('Error fetching user data:', error);
-        // Generate dummy metrics even on error
-        setHealthMetrics(generateDummyHealthMetrics());
       } finally {
         setLoading(false);
       }
@@ -176,7 +173,7 @@ const DashboardPage = () => {
 
   const upcomingAppointments = appointments.filter(isUpcoming).slice(0, 3);
   const missedAppointments = appointments.filter(isMissed);
-  const completedAppointments = appointments.filter(apt => apt.status === 'completed').slice(0, 2);
+  const completedAppointments = appointments.filter(apt => apt.status === 'completed');
 
   const formatHealthMetricValue = (key: string, value: any): string => {
     switch (key) {
@@ -244,6 +241,13 @@ const DashboardPage = () => {
             </Link>
           )}
           {user.role === 'admin' && (
+            <Link to="/admin/doctors">
+              <Button variant="secondary" size="sm" icon={<User className="h-5 w-5" />}>
+                Manage Doctors
+              </Button>
+            </Link>
+          )}
+          {user.role === 'admin' && (
             <Link to="/admin/manage-appointments">
               <Button variant="secondary" size="sm" icon={<Calendar className="h-5 w-5" />}>
                 Manage Appointments
@@ -262,29 +266,46 @@ const DashboardPage = () => {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">{t.welcomeBack}, {user.name || 'User'}!</h1>
-            <p className="text-indigo-100 mb-6 text-lg">{t.howAreYouFeeling}</p>
+            <p className="text-indigo-100 mb-4 text-lg">How are you feeling today?</p>
             <div className="flex space-x-3 mb-4 md:mb-0">
-              <button className="bg-white bg-opacity-20 hover:bg-opacity-30 px-6 py-3 rounded-full transition-all duration-200 backdrop-blur-sm">
-                😊 Great
-              </button>
-              <button className="bg-white bg-opacity-20 hover:bg-opacity-30 px-6 py-3 rounded-full transition-all duration-200 backdrop-blur-sm">
-                😐 Okay
-              </button>
-              <button className="bg-white bg-opacity-20 hover:bg-opacity-30 px-6 py-3 rounded-full transition-all duration-200 backdrop-blur-sm">
-                🤒 Unwell
-              </button>
+              {([['great','😊 Great','bg-green-400'],['okay','😐 Okay','bg-yellow-400'],['unwell','🤒 Unwell','bg-red-400']] as const).map(([key, label, active]) => (
+                <button
+                  key={key}
+                  onClick={() => { const v = feeling === key ? null : key; setFeeling(v); if (v) localStorage.setItem('hs_feeling', v); else localStorage.removeItem('hs_feeling'); }}
+                  className={`px-5 py-2.5 rounded-full text-white font-medium transition-all duration-200 text-sm ${
+                    feeling === key ? `${active} shadow-lg scale-105 ring-2 ring-white` : 'bg-white/20 hover:bg-white/30'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
+            {feeling && (
+              <p className="mt-3 text-indigo-100 text-sm italic">
+                {feeling === 'great' && '🌟 Great to hear! Keep up with your health routine.'}
+                {feeling === 'okay' && '💙 Take it easy today. Stay hydrated and rest well.'}
+                {feeling === 'unwell' && '🩺 Consider booking a doctor consultation if you need help.'}
+              </p>
+            )}
           </div>
-          <div className="mt-6 md:mt-0">
+          <div className="mt-6 md:mt-0 flex flex-col gap-2">
             <Link to="/symptom-checker">
               <Button 
                 variant="secondary" 
                 icon={<PlusCircle className="h-5 w-5" />} 
-                className="bg-white text-indigo-600 hover:bg-gray-50 font-semibold px-6 py-3"
+                className="bg-white text-indigo-600 hover:bg-gray-50 font-semibold px-6 py-3 w-full"
               >
                 {t.checkSymptoms}
               </Button>
             </Link>
+            <div className="flex gap-2">
+              <Link to="/medicines" className="flex-1">
+                <Button variant="outline" className="bg-indigo-900/30 text-white border-indigo-400 w-full">Medicines</Button>
+              </Link>
+              <Link to="/wellness" className="flex-1">
+                <Button variant="outline" className="bg-indigo-900/30 text-white border-indigo-400 w-full">Wellness</Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -490,7 +511,100 @@ const DashboardPage = () => {
               ) : (
                 <div className="text-center py-8">
                   <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">No health metrics available</p>
+                  <p className="text-gray-500 mb-3">No health metrics available</p>
+                  <button
+                    onClick={() => { setShowMetricsForm(true); setMetricsError(''); }}
+                    className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    Add Metrics
+                  </button>
+                </div>
+              )}
+
+              {/* Metrics Edit Button */}
+              {healthMetrics && !showMetricsForm && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setMetricsForm({
+                        heartRate: healthMetrics.heartRate?.toString() || '',
+                        bloodPressure: healthMetrics.bloodPressure || '',
+                        weight: healthMetrics.weight?.toString() || '',
+                        temperature: healthMetrics.temperature?.toString() || '',
+                        steps: healthMetrics.steps?.toString() || '',
+                      });
+                      setShowMetricsForm(true);
+                      setMetricsError('');
+                    }}
+                    className="w-full flex items-center justify-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-medium py-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                  >
+                    <Edit2 className="h-4 w-4" /> Update Metrics
+                  </button>
+                </div>
+              )}
+
+              {/* Metrics Form */}
+              {showMetricsForm && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3">Update Health Metrics</h3>
+                  {metricsError && (
+                    <p className="text-red-500 text-xs mb-2">{metricsError}</p>
+                  )}
+                  <div className="space-y-2">
+                    {[
+                      { key: 'heartRate', label: 'Heart Rate (BPM)', placeholder: '72', type: 'number' },
+                      { key: 'bloodPressure', label: 'Blood Pressure', placeholder: '120/80', type: 'text' },
+                      { key: 'weight', label: 'Weight (kg)', placeholder: '70', type: 'number' },
+                      { key: 'temperature', label: 'Temperature (°C)', placeholder: '36.6', type: 'number' },
+                      { key: 'steps', label: 'Daily Steps', placeholder: '8000', type: 'number' },
+                    ].map(field => (
+                      <div key={field.key}>
+                        <label className="block text-xs font-medium text-gray-600 mb-0.5">{field.label}</label>
+                        <input
+                          type={field.type}
+                          value={metricsForm[field.key as keyof typeof metricsForm]}
+                          onChange={e => setMetricsForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      disabled={savingMetrics}
+                      onClick={async () => {
+                        setSavingMetrics(true);
+                        setMetricsError('');
+                        try {
+                          const payload: Record<string, any> = {};
+                          if (metricsForm.heartRate) payload.heartRate = Number(metricsForm.heartRate);
+                          if (metricsForm.bloodPressure) payload.bloodPressure = metricsForm.bloodPressure;
+                          if (metricsForm.weight) payload.weight = Number(metricsForm.weight);
+                          if (metricsForm.temperature) payload.temperature = Number(metricsForm.temperature);
+                          if (metricsForm.steps) payload.steps = Number(metricsForm.steps);
+                          const res = await axiosInstance.put('/users/health-metrics', payload);
+                          setHealthMetrics(res.data.healthMetrics);
+                          setShowMetricsForm(false);
+                        } catch (err: any) {
+                          setMetricsError(err.response?.data?.message || 'Failed to save metrics');
+                        } finally {
+                          setSavingMetrics(false);
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <Save className="h-3 w-3" />
+                      {savingMetrics ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => { setShowMetricsForm(false); setMetricsError(''); }}
+                      className="px-3 py-2 rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 text-sm transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               )}
             </CardBody>
@@ -503,30 +617,54 @@ const DashboardPage = () => {
             </CardHeader>
             <CardBody>
               <div className="space-y-3">
-                <Link to="/doctors" className="block">
-                  <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
-                    <div className="flex items-center">
-                      <PlusCircle className="h-5 w-5 text-indigo-600 mr-3" />
-                      <span className="font-medium">Book Appointment</span>
-                    </div>
-                  </button>
-                </Link>
-                <Link to="/symptom-checker" className="block">
-                  <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
-                    <div className="flex items-center">
-                      <Activity className="h-5 w-5 text-green-600 mr-3" />
-                      <span className="font-medium">Check Symptoms</span>
-                    </div>
-                  </button>
-                </Link>
-                <Link to="/appointments" className="block">
-                  <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
-                    <div className="flex items-center">
-                      <Calendar className="h-5 w-5 text-purple-600 mr-3" />
-                      <span className="font-medium">View All Appointments</span>
-                    </div>
-                  </button>
-                </Link>
+                <Link to="/health-records" className="block">
+                    <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
+                      <div className="flex items-center">
+                        <Activity className="h-5 w-5 text-blue-600 mr-3" />
+                        <span className="font-medium">Health Records</span>
+                      </div>
+                    </button>
+                  </Link>
+                  <Link to="/doctors" className="block">
+                    <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
+                      <div className="flex items-center">
+                        <PlusCircle className="h-5 w-5 text-indigo-600 mr-3" />
+                        <span className="font-medium">Book Appointment</span>
+                      </div>
+                    </button>
+                  </Link>
+                  <Link to="/medicines" className="block">
+                    <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-orange-100 bg-orange-50">
+                      <div className="flex items-center">
+                        <Pill className="h-5 w-5 text-orange-600 mr-3" />
+                        <span className="font-medium text-orange-800">Medicines</span>
+                      </div>
+                    </button>
+                  </Link>
+                  <Link to="/wellness" className="block">
+                    <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-green-100 bg-green-50">
+                      <div className="flex items-center">
+                        <Leaf className="h-5 w-5 text-green-600 mr-3" />
+                        <span className="font-medium text-green-800">Wellness</span>
+                      </div>
+                    </button>
+                  </Link>
+                  <Link to="/symptom-checker" className="block">
+                    <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
+                      <div className="flex items-center">
+                        <Activity className="h-5 w-5 text-green-600 mr-3" />
+                        <span className="font-medium">Check Symptoms</span>
+                      </div>
+                    </button>
+                  </Link>
+                  <Link to="/appointments" className="block">
+                    <button className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 border border-gray-100">
+                      <div className="flex items-center">
+                        <Calendar className="h-5 w-5 text-purple-600 mr-3" />
+                        <span className="font-medium">View All Appointments</span>
+                      </div>
+                    </button>
+                  </Link>
               </div>
             </CardBody>
           </Card>

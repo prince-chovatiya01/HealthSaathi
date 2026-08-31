@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
 import axiosInstance from '../api/axiosInstance';
 import { Calendar, Clock, User, Stethoscope, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
+import PageNav from '../components/common/PageNav';
 
 interface Doctor {
   name?: string;
@@ -12,7 +13,8 @@ interface Doctor {
 
 interface Appointment {
   date: string;
-  timeSlot: string;
+  timeSlot: string; // Legacy field name
+  time: string;     // Actual DB field name
 }
 
 const AppointmentForm: React.FC = () => {
@@ -78,12 +80,13 @@ const AppointmentForm: React.FC = () => {
           params: { doctor: doctorId, date }
         });
 
-        const taken: string[] = appts.data.map((a: Appointment) => a.timeSlot);
+        // DB stores time as start time only (HH:MM), slots are formatted as "HH:MM-HH:MM"
+        const taken: string[] = appts.data.map((a: Appointment) => a.time);
 
         setSlots(
           generated.map((slot) => ({
             slot,
-            available: !taken.includes(slot),
+            available: !taken.includes(slot.split('-')[0]), // compare start time only
           }))
         );
       } catch (err) {
@@ -139,6 +142,7 @@ const AppointmentForm: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
+        <PageNav />
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Book Your Appointment</h1>

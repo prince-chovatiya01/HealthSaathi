@@ -3,6 +3,7 @@ import { Star, Clock, CheckCircle, ArrowLeft } from 'lucide-react';
 import { useLocation, Navigate, Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
+import PageNav from '../components/common/PageNav';
 
 const DoctorRatingPage: React.FC = () => {
   const location = useLocation();
@@ -201,15 +202,8 @@ const DoctorRatingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center mb-6">
-          <Link to="/appointments" className="mr-4">
-            <button className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Appointments
-            </button>
-          </Link>
-          <h1 className="text-3xl font-bold">Rate Your Doctors</h1>
-        </div>
+        <PageNav />
+        <h1 className="text-3xl font-bold mb-6">Rate Your Doctors</h1>
 
         {error && !showRatingModal && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -266,9 +260,9 @@ const DoctorRatingPage: React.FC = () => {
                         <CheckCircle className="w-4 h-4 mr-1" /> Rated
                       </p>
                       {apt.userReview && (
-                        <p className="text-sm italic text-right text-gray-600 max-w-xs">
-                          "{apt.userReview}"
-                        </p>
+                          <p className="text-sm italic text-right text-gray-600 max-w-xs">
+                            &ldquo;{apt.userReview}&rdquo;
+                          </p>
                       )}
                     </div>
                   ) : (

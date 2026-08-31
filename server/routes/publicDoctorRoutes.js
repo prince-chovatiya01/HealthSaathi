@@ -6,7 +6,7 @@ import Rating from '../models/Rating.js';
 
 const router = express.Router();
 
-// GET /api/doctors
+// GET /api/doctors — list all doctors with real computed ratings
 router.get('/', async (req, res) => {
   try {
     const { specialization, language } = req.query;
@@ -17,90 +17,74 @@ router.get('/', async (req, res) => {
 
     const doctors = await Doctor.find(query).lean();
 
-    // Simply add placeholders for rating and reviews
-    const simplifiedDoctors = doctors.map((doc) => ({
+    // Compute real average rating for each doctor using aggregation
+    const doctorIds = doctors.map(d => d._id);
+
+    const ratingAggregates = await Rating.aggregate([
+      { $match: { doctor: { $in: doctorIds } } },
+      {
+        $group: {
+          _id: '$doctor',
+          avgRating: { $avg: '$rating' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Build a lookup map by doctorId string
+    const ratingMap = {};
+    ratingAggregates.forEach(r => {
+      ratingMap[r._id.toString()] = {
+        rating: parseFloat(r.avgRating.toFixed(1)),
+        reviewCount: r.count
+      };
+    });
+
+    const enrichedDoctors = doctors.map(doc => ({
       ...doc,
-      rating: 0,
-      reviews: []
+      rating: ratingMap[doc._id.toString()]?.rating || 0,
+      reviewCount: ratingMap[doc._id.toString()]?.reviewCount || 0,
+      reviews: [] // Full reviews available on GET /:id
     }));
 
-    res.json(simplifiedDoctors);
+    res.json(enrichedDoctors);
   } catch (error) {
     console.error('Error fetching doctors:', error);
     res.status(500).json({ message: 'Server error while fetching doctors' });
   }
 });
 
-// GET /api/doctors/:id
+// GET /api/doctors/:id — single doctor with full ratings
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: 'Invalid doctor ID format' });
   }
 
-  const doctor = await Doctor.findById(id).lean();
-  if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
-
-  const ratings = await Rating.find({ doctor: id })
-    .populate('user', 'name')
-    .sort({ createdAt: -1 });
-
-  const avgRating = ratings.length
-    ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
-    : 0;
-
-  doctor.rating = parseFloat(avgRating.toFixed(1));
-  doctor.reviews = ratings.map(r => ({
-    user: r.user,
-    rating: r.rating,
-    comment: r.review,
-    date: r.createdAt
-  }));
-
-  res.json(doctor);
-});
-
-// POST /api/doctors/:id/reviews
-router.post('/:id/reviews', protect, async (req, res) => {
-  const { id } = req.params;
-  const { rating, comment } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: 'Invalid doctor ID format' });
-  }
-
-  if (!rating || rating < 1 || rating > 5) {
-    return res.status(400).json({ message: 'Rating must be between 1 and 5' });
-  }
-
   try {
-    const doctor = await Doctor.findById(id);
+    const doctor = await Doctor.findById(id).lean();
     if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
 
-    const alreadyReviewed = doctor.reviews.find(
-      (r) => r.user.toString() === req.user?.userId
-    );
+    const ratings = await Rating.find({ doctor: id })
+      .populate('user', 'name')
+      .sort({ createdAt: -1 });
 
-    if (alreadyReviewed) {
-      return res.status(400).json({ message: 'You already reviewed this doctor' });
-    }
+    const avgRating = ratings.length
+      ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length
+      : 0;
 
-    const review = {
-      user: req.user?.userId,
-      rating,
-      comment,
-      date: new Date(),
-    };
+    doctor.rating = parseFloat(avgRating.toFixed(1));
+    doctor.reviews = ratings.map(r => ({
+      user: r.user,
+      rating: r.rating,
+      comment: r.review,
+      date: r.createdAt
+    }));
 
-    doctor.reviews.push(review);
-    const total = doctor.reviews.reduce((acc, r) => acc + r.rating, 0);
-    doctor.rating = Number((total / doctor.reviews.length).toFixed(1));
-
-    await doctor.save();
-    res.status(201).json({ message: 'Review added' });
+    res.json(doctor);
   } catch (error) {
-    console.error('Error adding review:', error);
-    res.status(500).json({ message: 'Server error while adding review' });
+    console.error('Error fetching doctor:', error);
+    res.status(500).json({ message: 'Server error while fetching doctor' });
   }
 });
 

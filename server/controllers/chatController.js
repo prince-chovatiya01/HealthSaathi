@@ -3,7 +3,7 @@ import Chat from '../models/Chat.js';
 // Get chat history between user and doctor
 export const getChatHistory = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id; // Fixed: was req.user.userId (undefined)
     const doctorId = req.params.doctorId;
 
     const messages = await Chat.find({
@@ -23,7 +23,7 @@ export const getChatHistory = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { receiverId, message } = req.body;
-    const senderId = req.user.userId;
+    const senderId = req.user._id; // Fixed: was req.user.userId (undefined)
 
     const newMessage = new Chat({
       sender: senderId,

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import Doctor from '../models/Doctors.js';
+import Doctor from '../models/Doctor.js'; // Fixed: was '../models/Doctors.js' (wrong filename)
 import Rating from '../models/Rating.js';
 
 // Get all doctors with optional filters
@@ -117,7 +117,7 @@ export const addDoctorReview = async (req, res) => {
     }
 
     const existing = await Rating.findOne({
-      user: req.user.userId,
+      user: req.user._id, // Fixed: was req.user.userId (undefined)
       doctor: doctorId,
       appointment: appointmentId
     });
@@ -127,7 +127,7 @@ export const addDoctorReview = async (req, res) => {
     }
 
     const newRating = new Rating({
-      user: req.user.userId,
+      user: req.user._id, // Fixed: was req.user.userId (undefined)
       doctor: doctorId,
       appointment: appointmentId,
       rating,

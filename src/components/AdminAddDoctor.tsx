@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, X, Plus, Trash2 } from 'lucide-react';
+import axiosInstance from '../api/axiosInstance';
 
 interface AvailabilitySlot {
   day: string;
@@ -8,7 +9,8 @@ interface AvailabilitySlot {
 
 const specializations = [
   "Cardiology", "Dermatology", "Neurology", "Pediatrics",
-  "Psychiatry", "Orthopedics", "Gynecology", "General Surgery"
+  "Psychiatry", "Orthopedics", "Gynecology", "General Surgery",
+  "ENT", "Ophthalmology", "General Medicine", "Dentistry"
 ];
 
 const languagesList = ["English", "Hindi", "Gujarati", "Marathi", "Tamil", "Telugu", "Bengali"];
@@ -23,6 +25,9 @@ const AdminAddDoctor: React.FC = () => {
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [imageUrl, setImageUrl] = useState('');
   const [fees, setFees] = useState<number | ''>('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,53 +65,34 @@ const AdminAddDoctor: React.FC = () => {
   };
 
   const addDoctor = async () => {
+    setErrorMessage('');
+    setSuccessMessage('');
+
     if (!name || !specialization || !experience || languages.length === 0 || availability.length === 0 || !fees) {
-      alert('❌ Please fill all required (*) fields');
+      setErrorMessage('Please fill all required (*) fields');
       return;
     }
 
+    setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/admin/add-doctor', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name,
-          specialization,
-          experience,
-          languages,
-          availability,
-          imageUrl,
-          fees,
-        }),
+      await axiosInstance.post('/admin/add-doctor', {
+        name,
+        specialization,
+        experience,
+        languages,
+        availability,
+        imageUrl,
+        fees,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add doctor');
-      }
-
-      const result = await response.json();
-      console.log(result);
-      alert('✅ Doctor added successfully!');
-
-      // Reset form
-      setName('');
-      setSpecialization('');
-      setExperience(0);
-      setLanguages([]);
-      setAvailability([]);
-      setImageUrl('');
-      setFees(0);
-    } catch (error) {
-      console.error(error);
-      alert('❌ Failed to add doctor');
+      setSuccessMessage('✅ Doctor added successfully!');
+      resetForm();
+    } catch (error: any) {
+      setErrorMessage(error.response?.data?.message || 'Failed to add doctor');
+    } finally {
+      setSubmitting(false);
     }
   };
-
 
   const updateAvailabilityDay = (index: number, newDay: string) => {
     setAvailability(prev =>
@@ -128,6 +114,17 @@ const AdminAddDoctor: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg font-sans">
       <h2 className="text-center text-2xl font-semibold text-gray-800 mb-6">Add Doctor</h2>
+
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+          {successMessage}
+        </div>
+      )}
+      {errorMessage && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+          {errorMessage}
+        </div>
+      )}
 
       {/* Name */}
       <Input label="Name" required value={name} onChange={setName} placeholder="Doctor's full name" />
@@ -151,7 +148,7 @@ const AdminAddDoctor: React.FC = () => {
       <Input label="Experience (years)" required type="number" min={0} value={experience} onChange={setExperience} placeholder="Years of experience" />
 
       {/* Language Multi-select */}
-      <div className="mb-4" ref={dropdownRef}>
+      <div className="mb-4 relative" ref={dropdownRef}>
         <label className="block font-semibold text-gray-700 mb-1">Languages<span className="text-red-500 ml-1">*</span></label>
         <div
           className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white cursor-pointer flex justify-between items-center"
@@ -233,8 +230,12 @@ const AdminAddDoctor: React.FC = () => {
       <Input label="Fees (INR)" required type="number" value={fees} onChange={setFees} placeholder="Consultation fees" min={0} />
 
       {/* Submit */}
-      <button onClick={addDoctor} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-lg text-lg font-semibold mt-4">
-        Add Doctor
+      <button
+        onClick={addDoctor}
+        disabled={submitting}
+        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 px-4 rounded-lg text-lg font-semibold mt-4 transition-colors"
+      >
+        {submitting ? 'Adding Doctor...' : 'Add Doctor'}
       </button>
     </div>
   );
