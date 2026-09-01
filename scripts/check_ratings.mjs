@@ -1,5 +1,6 @@
+import 'dotenv/config';
 import mongoose from 'mongoose';
-await mongoose.connect('mongodb+srv://root:root@completecoding.bft5dmj.mongodb.net/healthsaathi?appName=CompleteCoding');
+await mongoose.connect(process.env.MONGODB_URI);
 const Rating = (await import('../server/models/Rating.js')).default;
 const User = (await import('../server/models/User.js')).default;
 const Doctor = (await import('../server/models/Doctor.js')).default;

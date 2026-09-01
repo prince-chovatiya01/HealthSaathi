@@ -1,4 +1,5 @@
 // Fix existing health records that have no attachments — add PDF files to them
+import 'dotenv/config';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -8,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const UPLOADS_DIR = path.join(ROOT, 'uploads');
 
-const URI = 'mongodb+srv://root:root@completecoding.bft5dmj.mongodb.net/healthsaathi?appName=CompleteCoding';
+const URI = process.env.MONGODB_URI;
 
 function makePDF(title, lines) {
   const body = [title, '', ...lines].map(l => `(${l.replace(/[()\\]/g, '\\$&')}) Tj\n0 -16 Td`).join('\n');

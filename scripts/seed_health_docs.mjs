@@ -3,6 +3,7 @@
  * Creates text-based PDFs (using minimal PDF structure) and PNG placeholders
  * then uploads them via the API so they appear in Health Records for demo patients.
  */
+import 'dotenv/config';
 import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
@@ -14,7 +15,7 @@ const UPLOADS_DIR = path.join(ROOT, 'uploads');
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const URI = 'mongodb+srv://root:root@completecoding.bft5dmj.mongodb.net/healthsaathi?appName=CompleteCoding';
+const URI = process.env.MONGODB_URI;
 
 await mongoose.connect(URI);
 console.log('✅ MongoDB Connected');

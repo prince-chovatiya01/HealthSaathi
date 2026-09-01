@@ -2,6 +2,7 @@
  * HealthSaathi Demo Seed + Excel Export
  * Creates rich demo accounts and exports HealthSaathi_Demo_Credentials.xlsx
  */
+import 'dotenv/config';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import XLSX from 'xlsx';
@@ -19,7 +20,7 @@ import Rating from '../server/models/Rating.js';
 import HealthRecord from '../server/models/HealthRecord.js';
 import Chat from '../server/models/Chat.js';
 
-const URI = 'mongodb+srv://root:root@completecoding.bft5dmj.mongodb.net/healthsaathi?appName=CompleteCoding';
+const URI = process.env.MONGODB_URI;
 
 // ─── Helper ────────────────────────────────────────────────────────────────
 async function upsertUser({ phoneNumber, name, password, role }) {
