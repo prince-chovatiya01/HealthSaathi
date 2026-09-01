@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Clock, CheckCircle, ArrowLeft } from 'lucide-react';
-import { useLocation, Navigate, Link } from 'react-router-dom';
+import { Star, CheckCircle, Stethoscope } from 'lucide-react';
+import { useLocation, Navigate, useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
 import PageNav from '../components/common/PageNav';
 
+const LABELS = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+
 const DoctorRatingPage: React.FC = () => {
   const location = useLocation();
   const { user } = useHealthSaathi();
+  const navigate = useNavigate();
 
   const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [showRatingModal, setShowRatingModal] = useState(false);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [review, setReview] = useState('');
@@ -20,325 +22,197 @@ const DoctorRatingPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Get data from navigation state if available
   const navigationData = location?.state;
 
   useEffect(() => {
-    const fetchAppointments = async () => {
+    if (!user) return;
+    const fetch = async () => {
       try {
         setFetchLoading(true);
-        setError('');
-
-        // If we have navigation data, use it directly and skip API call
         if (navigationData?.appointmentId && navigationData?.doctorId) {
-          const mockAppointment = {
+          const mock = {
             _id: navigationData.appointmentId,
-            doctor: {
-              name: navigationData.doctorName || 'Doctor',
-              specialization: navigationData.doctorSpecialization || 'General'
-            },
+            doctor: { name: navigationData.doctorName || 'Doctor', specialization: '' },
             doctorId: navigationData.doctorId,
             date: navigationData.appointmentDate || new Date().toISOString().split('T')[0],
-            time: navigationData.appointmentTime || '00:00',
-            hasRated: false
+            time: '00:00', hasRated: false,
           };
-
-          setAppointments([mockAppointment]);
-          setSelectedAppointment(mockAppointment);
-          setShowRatingModal(true);
-          setFetchLoading(false);
+          setAppointments([mock]);
+          setSelectedAppointment(mock);
           return;
         }
-
-        // Fallback to API call if no navigation data
         const res = await axiosInstance.get('/appointments/completed');
-        const completedAppointments = res.data.appointments || [];
-
-        setAppointments(completedAppointments);
-
-        const appointmentId = navigationData?.appointmentId;
-        if (appointmentId) {
-          const apt = completedAppointments.find((a: any) => a._id === appointmentId);
-          if (apt && !apt.hasRated) {
-            setSelectedAppointment(apt);
-            setShowRatingModal(true);
-          }
+        const list = res.data.appointments || [];
+        setAppointments(list);
+        if (navigationData?.appointmentId) {
+          const apt = list.find((a: any) => a._id === navigationData.appointmentId);
+          if (apt && !apt.hasRated) setSelectedAppointment(apt);
         }
       } catch (err: any) {
-        console.error('Failed to fetch appointments', err);
-        setError('Failed to load appointments. Please try again.');
-        
-        // If we have navigation data, still try to show the rating modal
+        setError('Failed to load appointments');
         if (navigationData?.appointmentId && navigationData?.doctorId) {
-          const mockAppointment = {
-            _id: navigationData.appointmentId,
-            doctor: {
-              name: navigationData.doctorName || 'Doctor',
-              specialization: navigationData.doctorSpecialization || 'General'
-            },
-            doctorId: navigationData.doctorId,
-            date: navigationData.appointmentDate || new Date().toISOString().split('T')[0],
-            time: navigationData.appointmentTime || '00:00',
-            hasRated: false
-          };
-
-          setAppointments([mockAppointment]);
-          setSelectedAppointment(mockAppointment);
-          setShowRatingModal(true);
+          const mock = { _id: navigationData.appointmentId, doctor: { name: navigationData.doctorName || 'Doctor', specialization: '' }, doctorId: navigationData.doctorId, date: new Date().toISOString().split('T')[0], time: '00:00', hasRated: false };
+          setAppointments([mock]); setSelectedAppointment(mock);
         }
-      } finally {
-        setFetchLoading(false);
-      }
+      } finally { setFetchLoading(false); }
     };
-
-    if (user) {
-      fetchAppointments();
-    }
-  }, [location?.state, user, navigationData]);
+    fetch();
+  }, [location?.state, user]);
 
   if (!user) return <Navigate to="/login" />;
 
-  const openRatingModal = (apt: any) => {
-    setSelectedAppointment(apt);
-    setShowRatingModal(true);
-    setRating(0);
-    setReview('');
-    setSuccessMessage('');
-    setError('');
-  };
-
-  const closeRatingModal = () => {
-    setShowRatingModal(false);
-    setSelectedAppointment(null);
-    setSuccessMessage('');
-    setError('');
-  };
-
-  const handleStarClick = (star: number) => setRating(star);
-
   const submitRating = async () => {
-    if (rating === 0) {
-      setError('Please provide a rating');
-      return;
-    }
-    
-    setLoading(true);
-    setError('');
-
+    if (!rating) { setError('Please select a rating'); return; }
+    setLoading(true); setError('');
     try {
       const doctorId = typeof selectedAppointment.doctorId === 'string'
         ? selectedAppointment.doctorId
         : selectedAppointment.doctorId?._id || selectedAppointment.doctor?._id;
-
-      if (!doctorId) {
-        throw new Error('Doctor ID not found');
-      }
-
-      const res = await axiosInstance.post('/ratings/submit', {
-        doctor_id: doctorId,
-        appointment_id: selectedAppointment._id,
-        rating,
-        review: review.trim()
-      });
-
-      const data = res.data;
-
-      if (data.success) {
-        setAppointments(prev =>
-          prev.map(apt =>
-            apt._id === selectedAppointment._id
-              ? { ...apt, hasRated: true, userRating: rating, userReview: review }
-              : apt
-          )
-        );
+      if (!doctorId) throw new Error('Doctor ID not found');
+      const res = await axiosInstance.post('/ratings/submit', { doctor_id: doctorId, appointment_id: selectedAppointment._id, rating, review: review.trim() });
+      if (res.data.success) {
         setSuccessMessage('Thank you for your feedback!');
-        setTimeout(() => {
-          closeRatingModal();
-          // Navigate back to appointments page after successful rating
-          window.history.back();
-        }, 2000);
-      } else {
-        setError(data.message || 'Something went wrong');
+        setAppointments(prev => prev.map(a => a._id === selectedAppointment._id ? { ...a, hasRated: true, userRating: rating, userReview: review } : a));
+        setTimeout(() => navigate('/appointments'), 2500);
       }
     } catch (err: any) {
-      console.error('Rating error', err);
-      setError(err.response?.data?.message || 'Error submitting rating. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setError(err.response?.data?.message || 'Failed to submit rating. Please try again.');
+    } finally { setLoading(false); }
   };
 
-  const StarRating = ({ value, onChange }: any) => (
-    <div className="flex space-x-1 justify-center">
-      {[1, 2, 3, 4, 5].map(star => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onChange(star)}
-          onMouseEnter={() => setHoverRating(star)}
-          onMouseLeave={() => setHoverRating(0)}
-          className="focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
-        >
-          <Star
-            className={`w-8 h-8 transition-colors duration-200 ${
-              star <= (hoverRating || value)
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-300 hover:text-gray-400'
-            }`}
-          />
-        </button>
-      ))}
-    </div>
-  );
-
-  if (fetchLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
+  const unrated = appointments.filter(a => !a.hasRated && a.status !== 'cancelled');
+  const rated = appointments.filter(a => a.hasRated);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="hs-page">
+      <div className="hs-container-narrow max-w-2xl">
         <PageNav />
-        <h1 className="text-3xl font-bold mb-6">Rate Your Doctors</h1>
 
-        {error && !showRatingModal && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-600">{error}</p>
-          </div>
-        )}
+        <div className="mb-8">
+          <h1 className="hs-page-title">Rate Your Visit</h1>
+          <p className="text-slate-500 mt-1">Help others by sharing your experience</p>
+        </div>
 
-        {appointments.length === 0 && !fetchLoading ? (
-          <div className="text-center py-12">
-            <Star className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">
-              No completed appointments available for rating.
-            </p>
-            <Link to="/appointments" className="inline-block mt-4">
-              <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                View All Appointments
-              </button>
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {appointments.map((apt) => (
-              <div key={apt._id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-center">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900">{apt.doctor?.name}</h3>
-                    <p className="text-gray-600">{apt.doctor?.specialization}</p>
-                    <p className="text-sm text-gray-500 mt-2 flex items-center">
-                      <Clock className="inline w-4 h-4 mr-1" />
-                      {new Date(apt.date).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })} at {apt.time}
+        {/* Rating form */}
+        {selectedAppointment ? (
+          <div className="hs-card p-8">
+            {successMessage ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-9 h-9 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Thank You!</h3>
+                <p className="text-slate-500">{successMessage}</p>
+                <p className="text-sm text-slate-400 mt-2">Redirecting...</p>
+              </div>
+            ) : (
+              <>
+                {/* Doctor */}
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl mb-6">
+                  <div className="w-12 h-12 gradient-health rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Stethoscope className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800">{selectedAppointment.doctor?.name}</p>
+                    <p className="text-sm text-slate-500">
+                      {new Date(selectedAppointment.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                   </div>
+                </div>
 
-                  {apt.hasRated ? (
-                    <div className="text-right space-y-2">
-                      <div className="flex items-center space-x-1 justify-end">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Star
-                            key={star}
-                            className={`w-5 h-5 ${
-                              star <= apt.userRating
-                                ? 'fill-yellow-400 text-yellow-400'
-                                : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-sm text-green-600 flex items-center justify-end">
-                        <CheckCircle className="w-4 h-4 mr-1" /> Rated
-                      </p>
-                      {apt.userReview && (
-                          <p className="text-sm italic text-right text-gray-600 max-w-xs">
-                            &ldquo;{apt.userReview}&rdquo;
-                          </p>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => openRatingModal(apt)}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center"
-                    >
-                      <Star className="w-4 h-4 mr-2" /> Rate Doctor
-                    </button>
+                {error && <div className="hs-alert-error mb-4"><span>⚠️</span><span>{error}</span></div>}
+
+                {/* Stars */}
+                <div className="text-center mb-6">
+                  <p className="font-semibold text-slate-700 mb-4">How would you rate your experience?</p>
+                  <div className="flex justify-center gap-2 mb-2">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <button key={star} type="button"
+                        onClick={() => setRating(star)}
+                        onMouseEnter={() => setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        className="transition-transform hover:scale-110 focus:outline-none">
+                        <Star className={`w-10 h-10 ${star <= (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'} transition-colors`} />
+                      </button>
+                    ))}
+                  </div>
+                  {(hoverRating || rating) > 0 && (
+                    <p className="text-sm font-medium text-amber-600">{LABELS[hoverRating || rating]}</p>
                   )}
+                </div>
+
+                {/* Review */}
+                <div className="mb-6">
+                  <label className="hs-label">Write a Review <span className="text-slate-400 font-normal">(optional)</span></label>
+                  <textarea value={review} onChange={e => setReview(e.target.value)} rows={4}
+                    className="hs-input resize-none"
+                    placeholder="Share your experience with this doctor — what went well, what could be improved..." />
+                </div>
+
+                <button onClick={submitRating} disabled={loading || !rating}
+                  className="btn-primary w-full justify-center text-base py-3">
+                  {loading
+                    ? <span className="flex items-center gap-2"><span className="hs-spinner w-4 h-4" />Submitting...</span>
+                    : <span className="flex items-center gap-2"><Star className="w-4 h-4" />Submit Review</span>}
+                </button>
+              </>
+            )}
+          </div>
+        ) : fetchLoading ? (
+          <div className="flex justify-center py-20"><div className="hs-spinner w-10 h-10" /></div>
+        ) : (
+          <div className="space-y-6">
+            {/* Unrated appointments */}
+            {unrated.length > 0 && (
+              <div className="hs-card p-6">
+                <h2 className="hs-section-title mb-4">Visits Awaiting Review</h2>
+                <div className="space-y-3">
+                  {unrated.map(a => (
+                    <div key={a._id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl hover:bg-primary-50 transition-colors">
+                      <div className="w-10 h-10 gradient-health rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Stethoscope className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-slate-800">{a.doctor?.name}</p>
+                        <p className="text-sm text-slate-500">{new Date(a.date).toLocaleDateString()}</p>
+                      </div>
+                      <button onClick={() => { setSelectedAppointment(a); setRating(0); setReview(''); setError(''); }}
+                        className="btn-primary btn-sm">Rate Visit</button>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {showRatingModal && selectedAppointment && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-xl max-w-md w-full p-6 relative max-h-screen overflow-y-auto">
-              <h2 className="text-xl font-bold mb-4 text-center">
-                Rate Dr. {selectedAppointment?.doctor?.name}
-              </h2>
-
-              {successMessage ? (
-                <div className="text-center py-6">
-                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                  <p className="text-green-600 text-lg">{successMessage}</p>
-                  <p className="text-gray-500 text-sm mt-2">Redirecting...</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-6">
-                    <p className="text-gray-600 text-center mb-4">How was your experience?</p>
-                    <StarRating value={rating} onChange={handleStarClick} />
-                  </div>
-
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Share your experience (optional)
-                    </label>
-                    <textarea
-                      value={review}
-                      onChange={(e) => setReview(e.target.value)}
-                      placeholder="Tell others about your experience with the doctor..."
-                      rows={4}
-                      maxLength={500}
-                      className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">{review.length}/500 characters</p>
-                  </div>
-
-                  {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-red-600 text-sm">{error}</p>
+            {rated.length > 0 && (
+              <div className="hs-card p-6">
+                <h2 className="hs-section-title mb-4 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" /> Already Reviewed
+                </h2>
+                <div className="space-y-3">
+                  {rated.map(a => (
+                    <div key={a._id} className="flex items-center gap-4 p-4 bg-emerald-50 rounded-2xl">
+                      <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <CheckCircle className="w-5 h-5 text-emerald-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-slate-800">{a.doctor?.name}</p>
+                        <div className="flex items-center gap-0.5 mt-0.5">
+                          {[1,2,3,4,5].map(s => <Star key={s} className={`w-3.5 h-3.5 ${s <= (a.userRating || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />)}
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  ))}
+                </div>
+              </div>
+            )}
 
-                  <div className="flex justify-end gap-3">
-                    <button
-                      onClick={closeRatingModal}
-                      className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                      disabled={loading}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={submitRating}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      disabled={loading || rating === 0}
-                    >
-                      {loading ? 'Submitting...' : 'Submit Rating'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            {unrated.length === 0 && rated.length === 0 && (
+              <div className="hs-card p-16 text-center">
+                <Star className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-500">No completed appointments to review yet</p>
+              </div>
+            )}
           </div>
         )}
       </div>

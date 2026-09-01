@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pill, Plus, Clock, Trash2, Bell, BellOff, Check, X, Calendar, Search, AlertCircle } from 'lucide-react';
+import PageNav from '../components/common/PageNav';
 
 interface Medicine {
   id: string;
@@ -128,7 +129,9 @@ const MedicinesPage = () => {
     : 0;
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="hs-page">
+      <div className="hs-container-narrow max-w-5xl">
+      <PageNav />
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -425,6 +428,7 @@ const MedicinesPage = () => {
         <p className="text-sm text-amber-700">
           <strong>Reminder:</strong> Always follow your doctor's prescription. This tracker is for personal reference only and does not replace professional medical advice.
         </p>
+      </div>
       </div>
     </div>
   );

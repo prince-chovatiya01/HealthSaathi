@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Heart, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Heart, Eye, EyeOff, Phone, Lock, User, ArrowRight } from 'lucide-react';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
-import translations from '../utils/translations';
-import Button from '../components/common/Button';
-import Card from '../components/common/Card';
 import axiosInstance from '../api/axiosInstance';
 
 const SignupPage = () => {
@@ -12,169 +9,119 @@ const SignupPage = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
   const navigate = useNavigate();
-  const { login, language } = useHealthSaathi();
-  type LanguageKey = keyof typeof translations;
-  const t = translations[language as LanguageKey];
+  const { login } = useHealthSaathi();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    // Validate phone number
-    if (!/^\d{10}$/.test(phoneNumber)) {
-      setError('Please enter a valid 10-digit phone number');
-      return;
-    }
-
-    // Confirm password check
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
+    if (!/^\d{10}$/.test(phoneNumber)) { setError('Please enter a valid 10-digit phone number'); return; }
+    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
     setIsLoading(true);
-
     try {
-      // Role is always 'user' — admin must be set manually in the database
-      const response = await axiosInstance.post('/users/register', {
-        name,
-        phoneNumber,
-        password,
-      });
-      const data = response.data;
-
+      const { data } = await axiosInstance.post('/users/register', { name, phoneNumber, password });
       localStorage.setItem('token', data.token);
-
-      login({
-        _id: data._id,
-        phoneNumber: data.phoneNumber,
-        role: data.role,
-        name: data.name,
-      });
-
+      login({ _id: data._id, phoneNumber: data.phoneNumber, role: data.role, name: data.name });
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Something went wrong');
+      setError(err.response?.data?.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 px-4 py-12">
-      <Card className="w-full max-w-md">
-        <div className="p-8">
-          <div className="text-center mb-6">
-            <Heart className="h-12 w-12 text-indigo-600 mx-auto" />
-            <h1 className="text-2xl font-bold mt-4 text-gray-800">{t.signupHeader}</h1>
-            <p className="text-gray-600 mt-2">Create a new account</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2.5 mb-4">
+            <div className="w-11 h-11 gradient-health rounded-2xl flex items-center justify-center shadow-md">
+              <Heart className="w-6 h-6 text-white" fill="white" />
+            </div>
+            <span className="text-2xl font-bold text-primary-700">HealthSaathi</span>
           </div>
+          <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
+          <p className="text-slate-500 mt-1">Join thousands of patients managing their health</p>
+        </div>
 
+        <div className="bg-white rounded-3xl shadow-card-lg border border-slate-100 p-8">
           {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4 text-sm">
-              {error}
+            <div className="hs-alert-error mb-6">
+              <span>⚠️</span><span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSignup}>
-            <div className="mb-4">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                className="block w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Your Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="mb-4">
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                {t.phoneNumber}
-              </label>
+          <form onSubmit={handleSignup} className="space-y-5">
+            <div>
+              <label className="hs-label">Full Name</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                  +91
-                </span>
-                <input
-                  type="tel"
-                  id="phoneNumber"
-                  className="block w-full pl-12 pr-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="9876543210"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  maxLength={10}
-                  required
-                  disabled={isLoading}
-                />
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <User className="w-4 h-4 text-slate-400" />
+                </div>
+                <input type="text" value={name} onChange={e => setName(e.target.value)}
+                  className="hs-input pl-10" placeholder="Enter your full name" required />
               </div>
             </div>
 
-            <div className="mb-4">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                className="block w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+            <div>
+              <label className="hs-label">Phone Number</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <Phone className="w-4 h-4 text-slate-400" />
+                </div>
+                <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
+                  className="hs-input pl-10" placeholder="10-digit mobile number" maxLength={10} required />
+              </div>
             </div>
 
-            <div className="mb-6">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                id="confirmPassword"
-                className="block w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Confirm password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                disabled={isLoading}
-              />
+            <div>
+              <label className="hs-label">Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <Lock className="w-4 h-4 text-slate-400" />
+                </div>
+                <input type={showPassword ? 'text' : 'password'} value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="hs-input pl-10 pr-10" placeholder="Minimum 6 characters" required />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-700">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
-            <Button
-              type="submit"
-              fullWidth
-              isLoading={isLoading}
-              icon={<ArrowRight className="h-4 w-4" />}
-              iconPosition="right"
-              className="mt-2"
-            >
-              {t.submit}
-            </Button>
+            <div>
+              <label className="hs-label">Confirm Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                  <Lock className="w-4 h-4 text-slate-400" />
+                </div>
+                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                  className="hs-input pl-10" placeholder="Re-enter your password" required />
+              </div>
+            </div>
+
+            <button type="submit" disabled={isLoading} className="btn-primary w-full justify-center text-base py-3 mt-2">
+              {isLoading
+                ? <span className="flex items-center gap-2"><span className="hs-spinner w-4 h-4" />Creating account...</span>
+                : <span className="flex items-center gap-2">Create Account <ArrowRight className="w-4 h-4" /></span>}
+            </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-gray-200 text-center text-gray-500 text-sm space-y-2">
-            <p>By continuing, you agree to our Terms of Service and Privacy Policy</p>
-            <button
-              onClick={() => navigate('/login')}
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
-              disabled={isLoading}
-            >
-              Already have an account? Login
-            </button>
-          </div>
+          <p className="text-center text-sm text-slate-500 mt-6">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">Sign in</Link>
+          </p>
         </div>
-      </Card>
+
+        <p className="text-center text-xs text-slate-400 mt-6">
+          By creating an account, you agree to our Terms of Service and Privacy Policy
+        </p>
+      </div>
     </div>
   );
 };

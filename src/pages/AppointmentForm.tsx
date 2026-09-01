@@ -1,322 +1,205 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
 import axiosInstance from '../api/axiosInstance';
-import { Calendar, Clock, User, Stethoscope, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Clock, Stethoscope, CheckCircle, AlertCircle, MessageSquare } from 'lucide-react';
 import PageNav from '../components/common/PageNav';
 
 interface Doctor {
-  name?: string;
-  specialization?: string;
+  name?: string; specialization?: string;
   availability: { day: string; slots: { startTime: string; endTime: string }[] }[];
 }
 
-interface Appointment {
-  date: string;
-  timeSlot: string; // Legacy field name
-  time: string;     // Actual DB field name
-}
+const parseTime = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 const AppointmentForm: React.FC = () => {
   const { id: doctorId } = useParams();
   const { user } = useHealthSaathi();
+  const navigate = useNavigate();
 
   const [date, setDate] = useState('');
   const [slots, setSlots] = useState<{ slot: string; available: boolean }[]>([]);
-  const [message, setMessage] = useState('');
   const [symptoms, setSymptoms] = useState('');
   const [doctor, setDoctor] = useState<Doctor | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string>('');
+  const [selectedSlot, setSelectedSlot] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (doctorId) {
-      (async () => {
-        try {
-          const res = await axiosInstance.get(`/doctors/${doctorId}`);
-          setDoctor(res.data);
-        } catch (err) {
-          console.error('Error fetching doctor:', err);
-          setErrorMessage('Failed to load doctor information');
-        }
-      })();
+      axiosInstance.get(`/doctors/${doctorId}`).then(r => setDoctor(r.data)).catch(() => setErrorMessage('Failed to load doctor info'));
     }
   }, [doctorId]);
 
   useEffect(() => {
     if (!date || !doctor) return;
-
     (async () => {
-      setLoading(true);
+      setSlotsLoading(true);
       const dayName = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
-
-      const dayAvailability = doctor.availability.find(
-        (a) => a.day.toLowerCase() === dayName.toLowerCase()
-      );
-
-      if (!dayAvailability || dayAvailability.slots.length === 0) {
-        setSlots([]);
-        setLoading(false);
-        return;
-      }
-
+      const dayAv = doctor.availability.find(a => a.day.toLowerCase() === dayName.toLowerCase());
+      if (!dayAv || !dayAv.slots.length) { setSlots([]); setSlotsLoading(false); return; }
       const generated: string[] = [];
-
-      for (const s of dayAvailability.slots) {
-        const start = parseTime(s.startTime);
-        const end = parseTime(s.endTime);
-
-        for (let t = start; t + 60 <= end; t += 60) {
-          const slotStart = formatMinutesToTime(t);
-          const slotEnd = formatMinutesToTime(t + 60);
-          generated.push(`${slotStart}-${slotEnd}`);
-        }
+      for (const s of dayAv.slots) {
+        const start = parseTime(s.startTime); const end = parseTime(s.endTime);
+        for (let t = start; t + 60 <= end; t += 60) generated.push(`${fmt(t)}-${fmt(t + 60)}`);
       }
-
       try {
-        const appts = await axiosInstance.get(`/appointments`, {
-          params: { doctor: doctorId, date }
-        });
-
-        // DB stores time as start time only (HH:MM), slots are formatted as "HH:MM-HH:MM"
-        const taken: string[] = appts.data.map((a: Appointment) => a.time);
-
-        setSlots(
-          generated.map((slot) => ({
-            slot,
-            available: !taken.includes(slot.split('-')[0]), // compare start time only
-          }))
-        );
-      } catch (err) {
-        console.error('Error fetching appointments:', err);
-        setErrorMessage('Failed to load available slots');
-      } finally {
-        setLoading(false);
-      }
+        const appts = await axiosInstance.get('/appointments', { params: { doctor: doctorId, date } });
+        const taken = appts.data.map((a: any) => a.time);
+        setSlots(generated.map(slot => ({ slot, available: !taken.includes(slot.split('-')[0]) })));
+      } catch { setErrorMessage('Failed to load slots'); }
+      finally { setSlotsLoading(false); }
     })();
   }, [date, doctor, doctorId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    if (!selectedSlot || !user || !user._id || !doctorId) {
-      setErrorMessage('Missing doctor, user, or selected time slot.');
-      setLoading(false);
-      return;
-    }
-
-    const time = selectedSlot.split('-')[0];
-
+    if (!selectedSlot || !doctorId) { setErrorMessage('Please select a time slot'); return; }
+    setLoading(true); setErrorMessage('');
     try {
-      await axiosInstance.post('/appointments', {
-        doctorId,
-        date,
-        time,
-        symptoms: symptoms || 'No symptoms provided'
-      });
-      
+      await axiosInstance.post('/appointments', { doctorId, date, time: selectedSlot.split('-')[0], symptoms: symptoms || 'No symptoms provided' });
       setSuccessMessage('Appointment booked successfully!');
-      setSelectedSlot('');
-      setDate('');
-      setSymptoms('');
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccessMessage(''), 5000);
+      setSelectedSlot(''); setDate(''); setSymptoms('');
+      setTimeout(() => { navigate('/appointments'); }, 2500);
     } catch (err: any) {
       setErrorMessage(err.response?.data?.message || 'Booking failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
+  const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="hs-page">
+      <div className="hs-container-narrow max-w-3xl">
         <PageNav />
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Book Your Appointment</h1>
-          <p className="text-gray-600">Schedule a consultation with your healthcare provider</p>
+
+        <div className="mb-6">
+          <h1 className="hs-page-title">Book Appointment</h1>
+          <p className="text-slate-500 mt-1">Schedule a consultation with your healthcare provider</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Doctor Info Section */}
-          {doctor && (
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6">
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 p-3 rounded-full">
-                  <Stethoscope className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold">{doctor.name || 'Dr. Healthcare Provider'}</h2>
-                  <p className="text-blue-100">{doctor.specialization || 'General Medicine'}</p>
-                </div>
+        {/* Doctor info */}
+        {doctor && (
+          <div className="hs-card mb-6 overflow-hidden">
+            <div className="h-2 gradient-health" />
+            <div className="p-5 flex items-center gap-4">
+              <div className="w-14 h-14 gradient-health rounded-2xl flex items-center justify-center flex-shrink-0">
+                <Stethoscope className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-900 text-lg">{doctor.name || 'Doctor'}</h2>
+                <p className="text-primary-600 font-medium">{doctor.specialization || 'General Medicine'}</p>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Availability Schedule */}
-          <div className="p-6 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-              <Clock className="w-5 h-5 mr-2 text-blue-600" />
-              Doctor's Availability
+        {/* Availability overview */}
+        {doctor?.availability?.length ? (
+          <div className="hs-card p-5 mb-6">
+            <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary-600" /> Availability
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {doctor?.availability.map((a, index) => (
-                <div key={index} className="bg-gray-50 rounded-lg p-4">
-                  <div className="font-medium text-gray-800 mb-1">{a.day}</div>
-                  <div className="text-sm text-gray-600">
-                    {a.slots.length > 0
-                      ? `${a.slots[0].startTime} - ${a.slots[a.slots.length - 1].endTime}`
-                      : 'Not Available'}
-                  </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {doctor.availability.map((a, i) => (
+                <div key={i} className="bg-slate-50 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-slate-700">{a.day}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {a.slots.length > 0 ? `${a.slots[0].startTime} – ${a.slots[a.slots.length - 1].endTime}` : 'Unavailable'}
+                  </p>
                 </div>
               ))}
             </div>
           </div>
+        ) : null}
 
-          {/* Booking Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
-            {/* Date Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                <Calendar className="w-4 h-4 mr-2 text-blue-600" />
-                Select Date
-              </label>
-              <input
-                type="date"
-                value={date}
-                min={getTodayDate()}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setSelectedSlot('');
-                }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                required
-              />
-            </div>
-
-            {/* Time Slots */}
-            {date && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center">
-                  <Clock className="w-4 h-4 mr-2 text-blue-600" />
-                  Available Time Slots
-                </label>
-                
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <span className="ml-3 text-gray-600">Loading available slots...</span>
-                  </div>
-                ) : slots.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {slots.map(({ slot, available }) => (
-                      <button
-                        type="button"
-                        key={slot}
-                        disabled={!available}
-                        onClick={() => setSelectedSlot(slot)}
-                        className={`p-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          selectedSlot === slot
-                            ? 'bg-blue-600 text-white shadow-lg transform scale-105'
-                            : available
-                            ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 hover:shadow-md'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                        }`}
-                      >
-                        <div className="font-semibold">{slot}</div>
-                        <div className="text-xs opacity-75">
-                          {available ? 'Available' : 'Booked'}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Clock className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p>No available slots for the selected date</p>
-                    <p className="text-sm">Please choose another date</p>
-                  </div>
-                )}
+        {/* Booking form */}
+        <div className="hs-card p-6">
+          {successMessage ? (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-9 h-9 text-emerald-600" />
               </div>
-            )}
-
-            {/* Symptoms Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                <MessageSquare className="w-4 h-4 mr-2 text-blue-600" />
-                Symptoms or Reason for Visit (Optional)
-              </label>
-              <textarea
-                value={symptoms}
-                onChange={(e) => setSymptoms(e.target.value)}
-                placeholder="Please describe your symptoms or reason for the visit..."
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
-              />
+              <h3 className="text-xl font-bold text-slate-800 mb-2">Appointment Booked!</h3>
+              <p className="text-slate-500 mb-4">{successMessage}</p>
+              <p className="text-sm text-slate-400">Redirecting to appointments...</p>
             </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={!selectedSlot || loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:from-blue-700 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] disabled:hover:scale-100 shadow-lg"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  Booking Appointment...
-                </div>
-              ) : (
-                <div className="flex items-center justify-center">
-                  <User className="w-5 h-5 mr-2" />
-                  Book Appointment
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {errorMessage && (
+                <div className="hs-alert-error">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{errorMessage}</span>
                 </div>
               )}
-            </button>
 
-            {/* Messages */}
-            {successMessage && (
-              <div className="flex items-center p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                <CheckCircle className="w-5 h-5 mr-3 text-green-600" />
-                <span className="font-medium">{successMessage}</span>
+              {/* Date selection */}
+              <div>
+                <label className="hs-label">Select Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input type="date" value={date} min={today}
+                    onChange={e => { setDate(e.target.value); setSelectedSlot(''); setSlots([]); }}
+                    className="hs-input pl-10" required />
+                </div>
               </div>
-            )}
 
-            {errorMessage && (
-              <div className="flex items-center p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-                <XCircle className="w-5 h-5 mr-3 text-red-600" />
-                <span className="font-medium">{errorMessage}</span>
+              {/* Slot selection */}
+              {date && (
+                <div>
+                  <label className="hs-label">Select Time Slot</label>
+                  {slotsLoading ? (
+                    <div className="flex justify-center py-6"><div className="hs-spinner w-7 h-7" /></div>
+                  ) : slots.length === 0 ? (
+                    <div className="text-center py-6 bg-slate-50 rounded-2xl">
+                      <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                      <p className="text-slate-500 text-sm">No slots available for this date</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {slots.map(({ slot, available }) => (
+                        <button key={slot} type="button" disabled={!available}
+                          onClick={() => setSelectedSlot(slot)}
+                          className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+                            !available ? 'bg-slate-50 text-slate-300 cursor-not-allowed line-through'
+                            : selectedSlot === slot ? 'bg-primary-600 text-white shadow-md scale-105'
+                            : 'bg-slate-100 text-slate-700 hover:bg-primary-50 hover:text-primary-700'
+                          }`}>
+                          {slot.split('-')[0]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {selectedSlot && (
+                    <p className="mt-2 text-sm text-primary-600 font-medium">
+                      ✓ Selected: {selectedSlot}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Symptoms */}
+              <div>
+                <label className="hs-label">Symptoms / Notes <span className="text-slate-400 font-normal">(optional)</span></label>
+                <div className="relative">
+                  <MessageSquare className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                  <textarea value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3}
+                    className="hs-input pl-10 resize-none"
+                    placeholder="Describe your symptoms or reason for visit..." />
+                </div>
               </div>
-            )}
 
-            {/* Legacy message display for backward compatibility */}
-            {message && !successMessage && !errorMessage && (
-              <div className={`p-4 rounded-lg ${
-                message.includes('✅') 
-                  ? 'bg-green-50 border border-green-200 text-green-800' 
-                  : 'bg-red-50 border border-red-200 text-red-800'
-              }`}>
-                {message}
-              </div>
-            )}
-          </form>
-        </div>
-
-        {/* Footer Info */}
-        <div className="text-center mt-8 text-gray-500 text-sm">
-          <p>Need help? Contact our support team for assistance with booking.</p>
+              <button type="submit" disabled={loading || !selectedSlot || !date}
+                className="btn-primary w-full justify-center text-base py-3">
+                {loading
+                  ? <span className="flex items-center gap-2"><span className="hs-spinner w-4 h-4" />Booking...</span>
+                  : <span className="flex items-center gap-2"><Calendar className="w-4 h-4" />Confirm Appointment</span>}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
@@ -324,18 +207,3 @@ const AppointmentForm: React.FC = () => {
 };
 
 export default AppointmentForm;
-
-// Utilities (unchanged)
-const parseTime = (timeStr?: string) => {
-  if (!timeStr) return 0;
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-const formatMinutesToTime = (minutes: number) => {
-  const h = Math.floor(minutes / 60)
-    .toString()
-    .padStart(2, '0');
-  const m = (minutes % 60).toString().padStart(2, '0');
-  return `${h}:${m}`;
-};

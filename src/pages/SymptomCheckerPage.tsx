@@ -5,6 +5,7 @@ import Button from '../components/common/Button';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
 import { SymptomCheckerResult } from '../types';
 import translations from '../utils/translations';
+import PageNav from '../components/common/PageNav';
 
 // Mock symptom data
 const SYMPTOMS = [
@@ -193,8 +194,9 @@ const SymptomCheckerPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="hs-page">
+      <div className="hs-container-narrow max-w-4xl">
+        <PageNav />
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">{t.symptomChecker}</h1>
           <p className="text-gray-600">

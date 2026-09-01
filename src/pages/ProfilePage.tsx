@@ -1,22 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { User, Phone, Shield, Calendar, Edit2, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, Phone, Shield, Calendar, Edit2, Save, X, CheckCircle, AlertCircle, Clock, XCircle } from 'lucide-react';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
 import axiosInstance from '../api/axiosInstance';
 import PageNav from '../components/common/PageNav';
 
 interface ProfileData {
-  _id: string;
-  name: string;
-  phoneNumber: string;
-  role: string;
-  appointments: {
-    _id: string;
-    date: string;
-    time: string;
-    status: string;
-    doctor: { name: string; specialization: string };
-  }[];
+  _id: string; name: string; phoneNumber: string; role: string;
+  appointments: { _id: string; date: string; time: string; status: string; doctor: { name: string; specialization: string } }[];
 }
 
 const ProfilePage = () => {
@@ -29,246 +20,147 @@ const ProfilePage = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await axiosInstance.get('/users/profile');
-        setProfile(res.data);
-        setNewName(res.data.name);
-      } catch (err) {
-        console.error('Failed to fetch profile:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
+    axiosInstance.get('/users/profile').then(r => { setProfile(r.data); setNewName(r.data.name); })
+      .catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   if (!user) return <Navigate to="/login" />;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="hs-spinner w-10 h-10" /></div>;
 
   const handleSaveName = async () => {
     if (!newName.trim()) return;
-    setSaving(true);
-    setMessage(null);
+    setSaving(true); setMessage(null);
     try {
-      const res = await axiosInstance.put('/users/profile', { name: newName.trim() });
-      setProfile(prev => prev ? { ...prev, name: res.data.name } : prev);
-      // Update context too
-      login({ ...user, name: res.data.name });
+      const r = await axiosInstance.put('/users/profile', { name: newName.trim() });
+      setProfile(p => p ? { ...p, name: r.data.name } : p);
+      login({ ...user, name: r.data.name });
       setEditing(false);
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
       setTimeout(() => setMessage(null), 3000);
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to update profile' });
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.response?.data?.message || 'Failed to update profile' });
+    } finally { setSaving(false); }
   };
 
-  const completedCount = profile?.appointments.filter(a => a.status === 'completed').length ?? 0;
-  const upcomingCount = profile?.appointments.filter(a => a.status === 'upcoming').length ?? 0;
-  const cancelledCount = profile?.appointments.filter(a => a.status === 'cancelled').length ?? 0;
+  const counts = {
+    completed: profile?.appointments.filter(a => a.status === 'completed').length ?? 0,
+    upcoming: profile?.appointments.filter(a => a.status === 'upcoming').length ?? 0,
+    cancelled: profile?.appointments.filter(a => a.status === 'cancelled').length ?? 0,
+    total: profile?.appointments.length ?? 0,
+  };
+
+  const recentAppointments = (profile?.appointments || [])
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <PageNav />
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-gray-600 mt-1">Manage your account information</p>
-      </div>
+    <div className="hs-page">
+      <div className="hs-container-narrow max-w-4xl">
+        <PageNav />
 
-      {message && (
-        <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
-          message.type === 'success'
-            ? 'bg-green-50 border border-green-200 text-green-800'
-            : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
-          {message.type === 'success'
-            ? <CheckCircle className="h-5 w-5 text-green-600" />
-            : <AlertCircle className="h-5 w-5 text-red-600" />}
-          <span className="font-medium">{message.text}</span>
+        <div className="mb-8">
+          <h1 className="hs-page-title">My Profile</h1>
+          <p className="text-slate-500 mt-1">Manage your account information</p>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Profile Card */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                <span className="text-3xl font-bold text-white">
-                  {profile?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Profile card */}
+          <div className="lg:col-span-1 space-y-5">
+            <div className="hs-card p-6 text-center">
+              <div className="w-24 h-24 gradient-health rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                <User className="w-12 h-12 text-white" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{profile?.name}</h2>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mt-1 ${
-                  profile?.role === 'admin'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-blue-100 text-blue-700'
-                }`}>
-                  <Shield className="h-3 w-3 mr-1" />
-                  {profile?.role === 'admin' ? 'Administrator' : 'Patient'}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {/* Name Field */}
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-600">
-                    <User className="h-4 w-4" />
-                    Full Name
-                  </label>
-                  {!editing ? (
-                    <button
-                      onClick={() => setEditing(true)}
-                      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 transition-colors"
-                    >
-                      <Edit2 className="h-3 w-3" />
-                      Edit
+              {editing ? (
+                <div className="space-y-3">
+                  <input value={newName} onChange={e => setNewName(e.target.value)} className="hs-input text-center" />
+                  <div className="flex gap-2">
+                    <button onClick={handleSaveName} disabled={saving} className="btn-primary btn-sm flex-1 justify-center">
+                      <Save className="w-3.5 h-3.5" /> {saving ? 'Saving...' : 'Save'}
                     </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleSaveName}
-                        disabled={saving}
-                        className="flex items-center gap-1 text-xs text-green-600 hover:text-green-800 transition-colors"
-                      >
-                        <Save className="h-3 w-3" />
-                        {saving ? 'Saving...' : 'Save'}
-                      </button>
-                      <button
-                        onClick={() => { setEditing(false); setNewName(profile?.name || ''); }}
-                        className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {editing ? (
-                  <input
-                    type="text"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-3 py-2 border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
-                    autoFocus
-                  />
-                ) : (
-                  <p className="text-gray-900 font-semibold">{profile?.name}</p>
-                )}
-              </div>
-
-              {/* Phone Field */}
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-2">
-                  <Phone className="h-4 w-4" />
-                  Phone Number
-                </label>
-                <p className="text-gray-900 font-semibold">+91 {profile?.phoneNumber}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Appointments */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-indigo-600" />
-                Recent Appointments
-              </h3>
-              <Link to="/appointments" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-                View all →
-              </Link>
-            </div>
-
-            {profile?.appointments && profile.appointments.length > 0 ? (
-              <div className="space-y-3">
-                {profile.appointments.slice(0, 5).map((apt) => (
-                  <div
-                    key={apt._id}
-                    className={`flex items-center justify-between p-3 rounded-xl border ${
-                      apt.status === 'completed' ? 'bg-green-50 border-green-100' :
-                      apt.status === 'upcoming' ? 'bg-blue-50 border-blue-100' :
-                      'bg-gray-50 border-gray-100'
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium text-gray-900">{apt.doctor?.name || 'Unknown Doctor'}</p>
-                      <p className="text-sm text-gray-600">{apt.doctor?.specialization}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(apt.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} · {apt.time}
-                      </p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      apt.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      apt.status === 'upcoming' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-200 text-gray-600'
-                    }`}>
-                      {apt.status}
-                    </span>
+                    <button onClick={() => { setEditing(false); setNewName(profile?.name || ''); }} className="btn-ghost btn-sm px-3">
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No appointments yet</p>
-                <Link to="/doctors" className="text-indigo-600 hover:underline text-sm mt-2 block">
-                  Book your first appointment
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold text-slate-900">{profile?.name}</h2>
+                  <p className="text-sm text-slate-500 mt-1 capitalize">{profile?.role === 'admin' ? '🛡 Administrator' : '👤 Patient'}</p>
+                  <button onClick={() => setEditing(true)} className="btn-ghost btn-sm mt-3 mx-auto">
+                    <Edit2 className="w-3.5 h-3.5" /> Edit Name
+                  </button>
+                </>
+              )}
 
-        {/* Stats Sidebar */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-            <h3 className="font-semibold text-gray-900 mb-4">Appointment Summary</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl">
-                <span className="text-green-700 text-sm font-medium">Completed</span>
-                <span className="text-2xl font-bold text-green-800">{completedCount}</span>
+              {message && (
+                <div className={`mt-4 text-sm px-3 py-2 rounded-xl ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                  {message.text}
+                </div>
+              )}
+            </div>
+
+            {/* Contact info */}
+            <div className="hs-card p-5 space-y-3">
+              <h3 className="font-semibold text-slate-800 text-sm uppercase tracking-wide">Account Details</h3>
+              <div className="flex items-center gap-3 text-sm">
+                <Phone className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                <span className="text-slate-600">{profile?.phoneNumber}</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl">
-                <span className="text-blue-700 text-sm font-medium">Upcoming</span>
-                <span className="text-2xl font-bold text-blue-800">{upcomingCount}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <span className="text-gray-600 text-sm font-medium">Cancelled</span>
-                <span className="text-2xl font-bold text-gray-700">{cancelledCount}</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-xl border-t border-purple-100 mt-2">
-                <span className="text-purple-700 text-sm font-medium">Total</span>
-                <span className="text-2xl font-bold text-purple-800">{profile?.appointments.length ?? 0}</span>
+              <div className="flex items-center gap-3 text-sm">
+                <Shield className="w-4 h-4 text-primary-500 flex-shrink-0" />
+                <span className="text-slate-600 capitalize">{profile?.role}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-            <h3 className="font-semibold mb-2">Quick Actions</h3>
-            <div className="space-y-2 mt-3">
-              <Link to="/doctors" className="block text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors text-center font-medium">
-                Book Appointment
-              </Link>
-              <Link to="/appointments" className="block text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors text-center font-medium">
-                View Appointments
-              </Link>
-              <Link to="/health-records" className="block text-sm bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors text-center font-medium">
-                Health Records
-              </Link>
+          {/* Stats + History */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Total', value: counts.total, icon: Calendar, bg: 'bg-violet-100', color: 'text-violet-700' },
+                { label: 'Upcoming', value: counts.upcoming, icon: Clock, bg: 'bg-blue-100', color: 'text-blue-700' },
+                { label: 'Completed', value: counts.completed, icon: CheckCircle, bg: 'bg-emerald-100', color: 'text-emerald-700' },
+                { label: 'Cancelled', value: counts.cancelled, icon: XCircle, bg: 'bg-slate-100', color: 'text-slate-600' },
+              ].map(s => (
+                <div key={s.label} className="hs-card p-4">
+                  <div className={`w-9 h-9 rounded-xl ${s.bg} flex items-center justify-center mb-2`}>
+                    <s.icon className={`w-4 h-4 ${s.color}`} />
+                  </div>
+                  <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                  <p className="text-xs text-slate-500 font-medium">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Recent appointments */}
+            <div className="hs-card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="hs-section-title">Recent Appointments</h3>
+                <Link to="/appointments" className="text-sm text-primary-600 font-medium hover:text-primary-800">View all</Link>
+              </div>
+              {recentAppointments.length > 0 ? (
+                <div className="space-y-2">
+                  {recentAppointments.map(a => (
+                    <div key={a._id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-800 truncate text-sm">{a.doctor?.name || 'Doctor'}</p>
+                        <p className="text-xs text-slate-500">{new Date(a.date).toLocaleDateString()} · {a.time}</p>
+                      </div>
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        a.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                        a.status === 'upcoming' ? 'bg-blue-100 text-blue-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>{a.status}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Calendar className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                  <p className="text-slate-400 text-sm">No appointments yet</p>
+                  <Link to="/doctors" className="btn-outline btn-sm mt-3 inline-flex">Find a Doctor</Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

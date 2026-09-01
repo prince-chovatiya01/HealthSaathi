@@ -3,6 +3,7 @@ import {
   Brain, Dumbbell, Apple, Heart, Moon, Wind, Target, ChevronRight,
   Smile, Meh, Frown, TrendingUp, Activity, Droplets, CheckCircle, Plus, X
 } from 'lucide-react';
+import PageNav from '../components/common/PageNav';
 
 type Mood = 'great' | 'good' | 'okay' | 'bad' | 'terrible';
 
@@ -120,7 +121,9 @@ const WellnessPage = () => {
   const todayMoodData = MOODS.find(m => m.value === todayMoodEntry?.mood);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="hs-page">
+      <div className="hs-container-narrow max-w-6xl">
+      <PageNav />
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -419,6 +422,7 @@ const WellnessPage = () => {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

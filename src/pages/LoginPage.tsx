@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Heart, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Heart, Eye, EyeOff, Phone, Lock, ArrowRight, Stethoscope, Shield, FileText } from 'lucide-react';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
-import translations from '../utils/translations';
-import Button from '../components/common/Button';
-import Card from '../components/common/Card';
 import axiosInstance from '../api/axiosInstance';
 
 const LoginPage = () => {
@@ -13,123 +10,153 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  type LanguageKey = keyof typeof translations;
-  const { login, language } = useHealthSaathi();
+  const { login } = useHealthSaathi();
   const navigate = useNavigate();
-  const t = translations[language as LanguageKey];
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-
     try {
-      const response = await axiosInstance.post('/users/login', { phoneNumber, password });
-      const data = response.data;
-
+      const { data } = await axiosInstance.post('/users/login', { phoneNumber, password });
       localStorage.setItem('token', data.token);
-
-      login({
-        _id: data._id,
-        phoneNumber: data.phoneNumber,
-        role: data.role,
-        name: data.name,
-      });
-
+      login({ _id: data._id, phoneNumber: data.phoneNumber, role: data.role, name: data.name });
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Something went wrong');
+      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const features = [
+    { icon: Stethoscope, text: 'Book appointments with verified doctors' },
+    { icon: FileText,    text: 'Manage your health records securely' },
+    { icon: Shield,      text: 'Your data is encrypted and private' },
+  ];
+
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 px-4 py-12">
-      <Card className="w-full max-w-md">
-        <div className="p-8">
-          <div className="text-center mb-6">
-            <Heart className="h-12 w-12 text-indigo-600 mx-auto" />
-            <h1 className="text-2xl font-bold mt-4 text-gray-800">{t.loginHeader}</h1>
-            <p className="text-gray-600 mt-2">Login with your phone number and password</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-primary-900 to-teal-900 flex">
+      {/* Left branding panel */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-teal-400 rounded-full blur-3xl" />
+        </div>
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-16">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+              <Heart className="w-7 h-7 text-white" fill="white" />
+            </div>
+            <div>
+              <p className="text-white text-xl font-bold">HealthSaathi</p>
+              <p className="text-white/60 text-xs font-medium tracking-wider uppercase">Healthcare Portal</p>
+            </div>
           </div>
-
-          {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-md mb-4 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                {t.phoneNumber}
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                  +91
-                </span>
-                <input
-                  type="tel"
-                  id="phoneNumber"
-                  className="block w-full pl-12 pr-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="9876543210"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  maxLength={10}
-                  required
-                />
+          <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
+            Your health,<br />our priority.
+          </h1>
+          <p className="text-white/70 text-lg mb-12">
+            Access world-class healthcare services from the comfort of your home.
+          </p>
+          <div className="space-y-5">
+            {features.map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-white/10 backdrop-blur rounded-xl flex items-center justify-center flex-shrink-0">
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <p className="text-white/80 font-medium">{text}</p>
               </div>
-            </div>
-
-            <div className="mb-4 relative">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                className="block w-full pr-10 px-3 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-indigo-600"
-                style={{ top: '28px' }}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-
-            <Button
-              type="submit"
-              fullWidth
-              isLoading={isLoading}
-              icon={<ArrowRight className="h-4 w-4" />}
-              iconPosition="right"
-              className="mt-2"
-            >
-              {t.submit}
-            </Button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-gray-200 text-center text-gray-500 text-sm space-y-2">
-            <p>By continuing, you agree to our Terms of Service and Privacy Policy</p>
-            <button
-              onClick={() => navigate('/signup')}
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              Don't have an account? Sign Up
-            </button>
+            ))}
           </div>
         </div>
-      </Card>
+        <p className="relative text-white/40 text-sm">© 2025 HealthSaathi. All rights reserved.</p>
+      </div>
+
+      {/* Right login form */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
+        <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex items-center gap-2.5 mb-8">
+            <div className="w-10 h-10 gradient-health rounded-xl flex items-center justify-center">
+              <Heart className="w-6 h-6 text-white" fill="white" />
+            </div>
+            <span className="text-xl font-bold text-primary-700">HealthSaathi</span>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-card-lg border border-slate-100 p-8">
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-slate-900">Welcome back</h2>
+              <p className="text-slate-500 mt-1">Sign in to your healthcare portal</p>
+            </div>
+
+            {error && (
+              <div className="hs-alert-error mb-6">
+                <span>⚠️</span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="hs-label">Phone Number</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                    <Phone className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={e => setPhoneNumber(e.target.value)}
+                    className="hs-input pl-10"
+                    placeholder="Enter your 10-digit phone number"
+                    maxLength={10}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="hs-label">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="hs-input pl-10 pr-10"
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-700">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button type="submit" disabled={isLoading} className="btn-primary w-full justify-center text-base py-3">
+                {isLoading ? (
+                  <span className="flex items-center gap-2"><span className="hs-spinner w-4 h-4" />Signing in...</span>
+                ) : (
+                  <span className="flex items-center gap-2">Sign In <ArrowRight className="w-4 h-4" /></span>
+                )}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-slate-500 mt-6">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-primary-600 font-semibold hover:text-primary-700">Create account</Link>
+            </p>
+          </div>
+
+          <p className="text-center text-xs text-slate-400 mt-6">
+            By signing in, you agree to our Terms of Service and Privacy Policy
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

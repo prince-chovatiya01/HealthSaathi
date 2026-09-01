@@ -2,239 +2,191 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
 import axiosInstance from '../api/axiosInstance';
-import { Stethoscope, Edit2, Trash2, Plus, Search, Star, Award, Languages, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
-import Button from '../components/common/Button';
-
-interface Slot {
-  startTime: string;
-  endTime: string;
-}
-
-interface Availability {
-  day: string;
-  slots: Slot[];
-}
+import { Stethoscope, Trash2, Plus, Search, Star, Shield, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Doctor {
-  _id: string;
-  name: string;
-  specialization: string;
-  experience: number;
-  languages: string[];
-  fees: number;
-  imageUrl?: string;
-  availability: Availability[];
-  rating?: number;
-  reviewCount?: number;
+  _id: string; name: string; specialization: string; experience: number;
+  languages: string[]; fees: number; availability: any[]; rating?: number; reviewCount?: number;
 }
 
 const AdminDoctorsPage = () => {
   const { user: authUser } = useHealthSaathi();
   const navigate = useNavigate();
-
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  useEffect(() => { if (authUser?.role !== 'admin') navigate('/dashboard'); }, [authUser, navigate]);
   useEffect(() => {
-    if (authUser?.role !== 'admin') {
-      navigate('/dashboard');
-    }
-  }, [authUser, navigate]);
-
-  const fetchDoctors = async () => {
-    try {
-      const res = await axiosInstance.get('/admin/doctors');
-      setDoctors(res.data);
-    } catch (err) {
-      console.error('Failed to fetch doctors:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDoctors();
+    axiosInstance.get('/admin/doctors').then(r => setDoctors(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const handleDelete = async (doctorId: string, doctorName: string) => {
-    if (!window.confirm(`Are you sure you want to remove Dr. ${doctorName}? This will also delete all their ratings.`)) {
-      return;
-    }
-
-    setDeletingId(doctorId);
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Remove Dr. ${name}? This will also delete all their ratings.`)) return;
+    setDeletingId(id);
     try {
-      await axiosInstance.delete(`/admin/${doctorId}`);
-      setDoctors(prev => prev.filter(d => d._id !== doctorId));
-      setMessage({ type: 'success', text: `Dr. ${doctorName} has been removed successfully.` });
+      await axiosInstance.delete(`/admin/${id}`);
+      setDoctors(p => p.filter(d => d._id !== id));
+      setMessage({ type: 'success', text: `Dr. ${name} removed successfully.` });
       setTimeout(() => setMessage(null), 4000);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to delete doctor' });
-    } finally {
-      setDeletingId(null);
-    }
+    } finally { setDeletingId(null); }
   };
 
-  const filteredDoctors = doctors.filter(doc =>
-    doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.specialization.toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = doctors.filter(d =>
+    d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    d.specialization.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Manage Doctors</h1>
-          <p className="text-gray-600 mt-1">{doctors.length} doctor{doctors.length !== 1 ? 's' : ''} registered</p>
-        </div>
-        <Link to="/admin/add-doctor">
-          <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
-            Add New Doctor
-          </Button>
-        </Link>
-      </div>
-
-      {/* Message */}
-      {message && (
-        <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
-          message.type === 'success'
-            ? 'bg-green-50 border border-green-200 text-green-800'
-            : 'bg-red-50 border border-red-200 text-red-800'
-        }`}>
-          {message.type === 'success'
-            ? <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-            : <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />}
-          <span>{message.text}</span>
-        </div>
-      )}
-
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by name or specialization..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white shadow-sm"
-        />
-      </div>
-
-      {/* Doctor List */}
-      {filteredDoctors.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-lg p-16 text-center border border-gray-100">
-          <Stethoscope className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">
-            {searchTerm ? 'No doctors match your search' : 'No doctors registered'}
-          </h3>
-          <p className="text-gray-500 mb-6">
-            {searchTerm ? 'Try a different search term' : 'Add your first doctor to get started'}
-          </p>
-          {!searchTerm && (
-            <Link to="/admin/add-doctor">
-              <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
-                Add Doctor
-              </Button>
-            </Link>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredDoctors.map(doctor => (
-            <div
-              key={doctor._id}
-              className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 group"
-            >
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-5 border-b border-gray-100">
-                <div className="flex items-start gap-4">
-                  <div className="relative">
-                    <img
-                      src={doctor.imageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(doctor.name)}&background=6366f1&color=fff&rounded=true`}
-                      alt={doctor.name}
-                      className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-md"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-900 text-lg leading-tight truncate">{doctor.name}</h3>
-                    <p className="text-indigo-600 font-medium text-sm">{doctor.specialization}</p>
-                    {(doctor.rating ?? 0) > 0 && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm font-semibold text-gray-700">{doctor.rating?.toFixed(1)}</span>
-                        <span className="text-xs text-gray-400">({doctor.reviewCount ?? 0} reviews)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Body */}
-              <div className="p-5">
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Award className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                    <span>{doctor.experience} years experience</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Languages className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span className="truncate">{doctor.languages.join(', ')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <DollarSign className="h-4 w-4 text-purple-500 flex-shrink-0" />
-                    <span>₹{doctor.fees} per consultation</span>
-                  </div>
-                </div>
-
-                {/* Availability preview */}
-                {doctor.availability.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {doctor.availability.slice(0, 4).map(a => (
-                      <span key={a.day} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
-                        {a.day.slice(0, 3)}
-                      </span>
-                    ))}
-                    {doctor.availability.length > 4 && (
-                      <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                        +{doctor.availability.length - 4} more
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-2 border-t border-gray-100">
-                  <Link
-                    to={`/doctors/${doctor._id}`}
-                    className="flex-1 text-center text-sm py-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium transition-colors"
-                  >
-                    View Profile
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(doctor._id, doctor.name)}
-                    disabled={deletingId === doctor._id}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm transition-colors disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {deletingId === doctor._id ? 'Removing...' : 'Remove'}
-                  </button>
-                </div>
-              </div>
+    <div className="hs-page">
+      <div className="hs-container">
+        {/* Admin header */}
+        <div className="gradient-warm rounded-3xl p-6 mb-8 text-white">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-amber-400/20 rounded-xl flex items-center justify-center">
+              <Shield className="w-6 h-6 text-amber-300" />
             </div>
-          ))}
+            <div>
+              <h1 className="text-2xl font-bold">Doctor Management</h1>
+              <p className="text-white/70 text-sm">Manage all registered doctors in the system</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Link to="/admin/add-doctor" className="inline-flex items-center gap-2 bg-white text-primary-700 hover:bg-primary-50 font-semibold px-4 py-2 rounded-xl text-sm transition-all">
+              <Plus className="w-4 h-4" /> Add New Doctor
+            </Link>
+            <Link to="/admin/manage-appointments" className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all">
+              Manage Appointments
+            </Link>
+          </div>
         </div>
-      )}
+
+        {message && (
+          <div className={`${message.type === 'success' ? 'hs-alert-success' : 'hs-alert-error'} mb-6`}>
+            {message.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            <span>{message.text}</span>
+            <button onClick={() => setMessage(null)} className="ml-auto"><X className="w-4 h-4" /></button>
+          </div>
+        )}
+
+        {/* Stats bar */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="hs-card p-4 text-center">
+            <p className="text-2xl font-bold text-primary-700">{doctors.length}</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Total Doctors</p>
+          </div>
+          <div className="hs-card p-4 text-center">
+            <p className="text-2xl font-bold text-teal-700">{[...new Set(doctors.map(d => d.specialization))].length}</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Specializations</p>
+          </div>
+          <div className="hs-card p-4 text-center">
+            <p className="text-2xl font-bold text-amber-600">{doctors.filter(d => (d.rating || 0) >= 4).length}</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Top Rated (4+)</p>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+            className="hs-input pl-10" placeholder="Search doctors by name or specialty..." />
+          {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>}
+        </div>
+
+        {/* Table */}
+        {loading ? (
+          <div className="flex justify-center py-20"><div className="hs-spinner w-10 h-10" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="hs-card p-16 text-center">
+            <Stethoscope className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-500">{searchTerm ? 'No doctors match your search' : 'No doctors registered yet'}</p>
+            <Link to="/admin/add-doctor" className="btn-primary btn-sm mt-4 inline-flex">Add First Doctor</Link>
+          </div>
+        ) : (
+          <div className="hs-card overflow-hidden">
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Doctor</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Specialty</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Experience</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fee</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Rating</th>
+                    <th className="text-right px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.map(doc => (
+                    <tr key={doc._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-primary-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <Stethoscope className="w-4 h-4 text-primary-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-800 text-sm">{doc.name}</p>
+                            <p className="text-xs text-slate-500">{doc.languages?.join(', ')}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="badge-blue">{doc.specialization}</span>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-slate-600">{doc.experience} yrs</td>
+                      <td className="px-5 py-4 text-sm font-semibold text-slate-800">₹{doc.fees}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <span className="font-medium">{doc.rating ? doc.rating.toFixed(1) : '–'}</span>
+                          {doc.reviewCount ? <span className="text-slate-400">({doc.reviewCount})</span> : null}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button onClick={() => handleDelete(doc._id, doc.name)}
+                          disabled={deletingId === doc._id}
+                          className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                          <Trash2 className="w-4 h-4" />
+                          {deletingId === doc._id ? 'Removing...' : 'Remove'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filtered.map(doc => (
+                <div key={doc._id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Stethoscope className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800">{doc.name}</p>
+                        <p className="text-sm text-primary-600">{doc.specialization}</p>
+                        <p className="text-xs text-slate-500 mt-1">{doc.experience} yrs · ₹{doc.fees}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleDelete(doc._id, doc.name)} disabled={deletingId === doc._id}
+                      className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

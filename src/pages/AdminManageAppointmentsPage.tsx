@@ -1,315 +1,201 @@
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { useHealthSaathi } from '../context/HealthSaathiContext';
-import { useNavigate } from 'react-router-dom';
-import Button from '../components/common/Button';
+import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { Shield, Calendar, Clock, CheckCircle, XCircle, Filter, Search, X, Save } from 'lucide-react';
 
 interface Appointment {
   _id: string;
-  userId: {
-    _id: string;
-    name: string;
-    phoneNumber?: string;
-  };
-  doctorId: {
-    _id: string;
-    name: string;
-    specialization: string;
-  };
-  date: string;
-  time: string;
+  userId: { _id: string; name: string; phoneNumber?: string };
+  doctorId: { _id: string; name: string; specialization: string };
+  date: string; time: string;
   status: 'upcoming' | 'completed' | 'cancelled';
 }
+
+const STATUS_BADGE = {
+  upcoming: 'badge-blue',
+  completed: 'badge-green',
+  cancelled: 'badge-gray',
+};
 
 const AdminManageAppointmentsPage = () => {
   const { user } = useHealthSaathi();
   const navigate = useNavigate();
-
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<Record<string, 'completed' | 'cancelled'>>({});
   const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  useEffect(() => { if (user?.role !== 'admin') navigate('/'); }, [user, navigate]);
 
   useEffect(() => {
-    if (user?.role !== 'admin') {
-      navigate('/');
-    }
-  }, [user, navigate]);
-
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        setLoading(true);
-        const res = await axiosInstance.get('/appointments/all');
-        setAppointments(res.data);
-      } catch (error) {
-        console.error('Error fetching appointments', error);
-        toast.error('Failed to load appointments');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAppointments();
+    setLoading(true);
+    axiosInstance.get('/appointments/all')
+      .then(r => setAppointments(r.data))
+      .catch(() => toast.error('Failed to load appointments'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleCheckboxChange = (appointmentId: string, status: 'completed' | 'cancelled') => {
-    setSelectedStatus((prev) => {
-      const currentStatus = prev[appointmentId];
-      const updated = { ...prev };
-
-      if (currentStatus === status) {
-        delete updated[appointmentId];
-      } else {
-        updated[appointmentId] = status;
-      }
-
-      return updated;
+  const handleCheckboxChange = (id: string, status: 'completed' | 'cancelled') => {
+    setSelectedStatus(prev => {
+      const next = { ...prev };
+      if (next[id] === status) delete next[id]; else next[id] = status;
+      return next;
     });
   };
 
   const applyChanges = async () => {
+    const updates = Object.entries(selectedStatus);
+    if (!updates.length) { toast('No changes selected'); return; }
+    setApplying(true);
     try {
-      const updates = Object.entries(selectedStatus);
-
-      if (updates.length === 0) {
-        toast('No changes to apply.');
-        return;
-      }
-
       for (const [id, status] of updates) {
         await axiosInstance.patch(`/appointments/${id}/status`, { status });
       }
-
-      toast.success('Appointments updated successfully');
-
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          selectedStatus[apt._id]
-            ? { ...apt, status: selectedStatus[apt._id] }
-            : apt
-        )
-      );
-
+      toast.success(`${updates.length} appointment(s) updated`);
+      setAppointments(prev => prev.map(a => selectedStatus[a._id] ? { ...a, status: selectedStatus[a._id] } : a));
       setSelectedStatus({});
-    } catch (error) {
-      console.error('Failed to update statuses:', error);
-      toast.error('Failed to update some appointments');
-    }
+    } catch { toast.error('Failed to update some appointments'); }
+    finally { setApplying(false); }
   };
 
-  const getStatusBadge = (status: string) => {
-    const baseClasses = "px-3 py-1 rounded-full text-sm font-medium";
-    switch (status) {
-      case 'upcoming':
-        return `${baseClasses} bg-blue-100 text-blue-700 border border-blue-200`;
-      case 'completed':
-        return `${baseClasses} bg-green-100 text-green-700 border border-green-200`;
-      case 'cancelled':
-        return `${baseClasses} bg-red-100 text-red-700 border border-red-200`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-700 border border-gray-200`;
-    }
-  };
+  const filtered = appointments.filter(a => {
+    const matchSearch = !searchTerm ||
+      a.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.doctorId?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchStatus = filterStatus === 'all' || a.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const counts = {
+    total: appointments.length,
+    upcoming: appointments.filter(a => a.status === 'upcoming').length,
+    completed: appointments.filter(a => a.status === 'completed').length,
+    cancelled: appointments.filter(a => a.status === 'cancelled').length,
   };
-
-  const formatTime = (timeStr: string) => {
-    const [hours, minutes] = timeStr.split(':');
-    const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading appointments...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-6 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Appointment Management</h1>
-          <p className="text-gray-600 text-lg">Manage and update appointment statuses</p>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full mt-4"></div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Appointments</p>
-                <p className="text-2xl font-bold text-gray-900">{appointments.length}</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
+    <div className="hs-page">
+      <div className="hs-container">
+        {/* Header */}
+        <div className="gradient-warm rounded-3xl p-6 mb-8 text-white">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-amber-400/20 rounded-xl flex items-center justify-center">
+              <Shield className="w-6 h-6 text-amber-300" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Appointment Management</h1>
+              <p className="text-white/70 text-sm">Review and update appointment statuses</p>
             </div>
           </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Upcoming</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {appointments.filter(apt => apt.status === 'upcoming').length}
-                </p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-indigo-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending Updates</p>
-                <p className="text-2xl font-bold text-gray-900">{Object.keys(selectedStatus).length}</p>
-              </div>
-              <div className="bg-indigo-100 p-3 rounded-full">
-                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </div>
-            </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Link to="/admin/doctors" className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all">
+              Manage Doctors
+            </Link>
+            <Link to="/admin/add-doctor" className="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all">
+              Add Doctor
+            </Link>
           </div>
         </div>
 
-        {appointments.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <div className="mb-4">
-              <svg className="w-16 h-16 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[
+            { label: 'Total', value: counts.total, color: 'text-violet-700', bg: 'bg-violet-100' },
+            { label: 'Upcoming', value: counts.upcoming, color: 'text-blue-700', bg: 'bg-blue-100' },
+            { label: 'Completed', value: counts.completed, color: 'text-emerald-700', bg: 'bg-emerald-100' },
+            { label: 'Cancelled', value: counts.cancelled, color: 'text-slate-600', bg: 'bg-slate-100' },
+          ].map(s => (
+            <div key={s.label} className="hs-card p-4 text-center">
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-slate-500 font-medium">{s.label}</p>
             </div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No appointments found</h3>
-            <p className="text-gray-500">There are currently no appointments to display.</p>
+          ))}
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-5">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+              className="hs-input pl-10" placeholder="Search patient or doctor..." />
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="hs-select sm:w-44">
+            <option value="all">All Statuses</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          {Object.keys(selectedStatus).length > 0 && (
+            <button onClick={applyChanges} disabled={applying}
+              className="btn-primary whitespace-nowrap">
+              <Save className="w-4 h-4" />
+              {applying ? 'Applying...' : `Apply ${Object.keys(selectedStatus).length} Changes`}
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-20"><div className="hs-spinner w-10 h-10" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="hs-card p-16 text-center">
+            <Calendar className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+            <p className="text-slate-500">No appointments found</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Patient
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Doctor
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Appointment Details
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Actions
-                    </th>
+          <div className="hs-card overflow-hidden">
+            {/* Desktop */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Patient</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Doctor</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date & Time</th>
+                    <th className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+                    <th className="text-center px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Mark As</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {appointments.map((apt, index) => (
-                    <tr key={apt._id} className={`hover:bg-gray-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 flex items-center justify-center">
-                              <span className="text-white font-medium text-sm">
-                                {apt.userId?.name?.charAt(0)?.toUpperCase() || 'U'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {apt.userId?.name || 'Unknown Patient'}
-                            </div>
-                          </div>
-                        </div>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.map(apt => (
+                    <tr key={apt._id} className={`hover:bg-slate-50 transition-colors ${selectedStatus[apt._id] ? 'bg-amber-50/50' : ''}`}>
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-slate-800 text-sm">{apt.userId?.name || '—'}</p>
+                        <p className="text-xs text-slate-500">{apt.userId?.phoneNumber || ''}</p>
                       </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 flex items-center justify-center">
-                              <span className="text-white font-medium text-sm">
-                                {apt.doctorId?.name?.charAt(0)?.toUpperCase() || 'D'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {apt.doctorId?.name || 'Unknown Doctor'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {apt.doctorId?.specialization || 'N/A'}
-                            </div>
-                          </div>
-                        </div>
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-slate-700 text-sm">{apt.doctorId?.name || '—'}</p>
+                        <p className="text-xs text-slate-500">{apt.doctorId?.specialization}</p>
                       </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          <div className="font-medium">{formatDate(apt.date)}</div>
-                          <div className="text-gray-500">{formatTime(apt.time)}</div>
-                        </div>
+                      <td className="px-5 py-4">
+                        <p className="text-sm text-slate-700">{new Date(apt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        <p className="text-xs text-slate-500">{apt.time}</p>
                       </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getStatusBadge(apt.status)}>
-                          {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
+                      <td className="px-5 py-4">
+                        <span className={STATUS_BADGE[selectedStatus[apt._id] || apt.status] || 'badge-gray'}>
+                          {selectedStatus[apt._id] ? `→ ${selectedStatus[apt._id]}` : apt.status}
                         </span>
                       </td>
-                      
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex justify-center space-x-4">
-                          <label className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedStatus[apt._id] === 'completed'}
-                              onChange={() => handleCheckboxChange(apt._id, 'completed')}
-                              disabled={apt.status !== 'upcoming'}
-                              className="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                            <span className="text-sm text-green-700 font-medium">Complete</span>
-                          </label>
-                          
-                          <label className="flex items-center space-x-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedStatus[apt._id] === 'cancelled'}
-                              onChange={() => handleCheckboxChange(apt._id, 'cancelled')}
-                              disabled={apt.status !== 'upcoming'}
-                              className="h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                            <span className="text-sm text-red-700 font-medium">Cancel</span>
-                          </label>
-                        </div>
+                      <td className="px-5 py-4">
+                        {apt.status === 'upcoming' ? (
+                          <div className="flex items-center justify-center gap-3">
+                            <label className="flex items-center gap-1.5 text-sm text-emerald-700 cursor-pointer">
+                              <input type="checkbox" checked={selectedStatus[apt._id] === 'completed'} onChange={() => handleCheckboxChange(apt._id, 'completed')}
+                                className="w-4 h-4 text-emerald-600 rounded border-slate-300" />
+                              Done
+                            </label>
+                            <label className="flex items-center gap-1.5 text-sm text-red-600 cursor-pointer">
+                              <input type="checkbox" checked={selectedStatus[apt._id] === 'cancelled'} onChange={() => handleCheckboxChange(apt._id, 'cancelled')}
+                                className="w-4 h-4 text-red-600 rounded border-slate-300" />
+                              Cancel
+                            </label>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 text-center capitalize">—</p>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -317,23 +203,33 @@ const AdminManageAppointmentsPage = () => {
               </table>
             </div>
 
-            {/* Apply Changes Button */}
-            {Object.keys(selectedStatus).length > 0 && (
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    {Object.keys(selectedStatus).length} appointment(s) selected for update
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filtered.map(apt => (
+                <div key={apt._id} className={`p-4 ${selectedStatus[apt._id] ? 'bg-amber-50/50' : ''}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="font-semibold text-slate-800">{apt.userId?.name || '—'}</p>
+                      <p className="text-sm text-slate-500">{apt.doctorId?.name} · {apt.doctorId?.specialization}</p>
+                      <p className="text-xs text-slate-400">{new Date(apt.date).toLocaleDateString()} at {apt.time}</p>
+                    </div>
+                    <span className={STATUS_BADGE[apt.status] || 'badge-gray'}>{apt.status}</span>
                   </div>
-                  <Button 
-                    variant="primary" 
-                    onClick={applyChanges}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                  >
-                    Apply Changes
-                  </Button>
+                  {apt.status === 'upcoming' && (
+                    <div className="flex gap-4 mt-3">
+                      <label className="flex items-center gap-2 text-sm text-emerald-700 cursor-pointer">
+                        <input type="checkbox" checked={selectedStatus[apt._id] === 'completed'} onChange={() => handleCheckboxChange(apt._id, 'completed')} className="w-4 h-4 text-emerald-600 rounded" />
+                        Mark Completed
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-red-600 cursor-pointer">
+                        <input type="checkbox" checked={selectedStatus[apt._id] === 'cancelled'} onChange={() => handleCheckboxChange(apt._id, 'cancelled')} className="w-4 h-4 text-red-600 rounded" />
+                        Cancel
+                      </label>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
       </div>
