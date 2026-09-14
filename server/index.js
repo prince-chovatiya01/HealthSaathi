@@ -54,18 +54,18 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/health-records', healthRecordRoutes);
 
-// Root route
-app.get('/', (req, res) => {
-  res.send('✅ HealthSaathi API is running...');
+// API Health check route
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'HealthSaathi API is running...' });
 });
 
-// Serve frontend in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
-  });
-}
+// Serve frontend static assets and handle SPA client routing
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
 
 // Socket.IO event handling — real-time chat
 io.on('connection', (socket) => {
