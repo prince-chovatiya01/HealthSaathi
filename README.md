@@ -6,7 +6,9 @@
 
 ## 🔗 Live Demo
 
-Coming soon...
+🚀 **Live Application**: [https://healthsaathi-zrvl.onrender.com](https://healthsaathi-zrvl.onrender.com)
+
+HealthSaathi is deployed publicly on **Render** with **MongoDB Atlas** cloud database. Experience the live demo featuring one-click demo logins for Patient and Admin roles, real-time doctor booking, health records, and dynamic dashboards.
 
 ---
 
