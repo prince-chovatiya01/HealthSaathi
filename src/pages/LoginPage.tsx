@@ -146,7 +146,30 @@ const LoginPage = () => {
               </button>
             </form>
 
-            <p className="text-center text-sm text-slate-500 mt-6">
+            {/* ── Demo Credentials ── */}
+            <div className="mt-5 pt-5 border-t border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 text-center">Quick Demo Login</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: '🛡 Admin',     phone: '9000000001', password: 'Admin@123' },
+                  { label: '👤 Patient 1', phone: '9111111111', password: 'Patient@1' },
+                  { label: '👤 Patient 2', phone: '9222222222', password: 'Patient@2' },
+                  { label: '👤 Patient 3', phone: '9333333333', password: 'Patient@3' },
+                ].map(({ label, phone, password: pw }) => (
+                  <button
+                    key={phone}
+                    type="button"
+                    onClick={() => { setPhoneNumber(phone); setPassword(pw); }}
+                    className="text-left px-3 py-2 rounded-xl border border-slate-200 hover:border-primary-300 hover:bg-primary-50 transition-all"
+                  >
+                    <p className="text-xs font-semibold text-slate-700">{label}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">{phone}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-center text-sm text-slate-500 mt-5">
               Don't have an account?{' '}
               <Link to="/signup" className="text-primary-600 font-semibold hover:text-primary-700">Create account</Link>
             </p>

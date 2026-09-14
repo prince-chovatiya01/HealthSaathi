@@ -30,10 +30,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ doctorId, doctorName, onClose }
   useEffect(() => {
     if (!user?._id) return;
     const token = localStorage.getItem('token');
-    const newSocket = io(
-      import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3000',
-      { auth: { token }, transports: ['websocket', 'polling'] }
-    );
+    const socketUrl = import.meta.env.PROD
+      ? window.location.origin
+      : (import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:3000');
+    const newSocket = io(socketUrl, { auth: { token }, transports: ['websocket', 'polling'] });
     newSocket.on('connect', () => {
       setConnected(true);
       newSocket.emit('join_room', `chat_${[user._id, doctorId].sort().join('_')}`);
